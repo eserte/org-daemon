@@ -58,6 +58,11 @@ use Tk::PNG;
 	    $self->{$k} = $v;
 	}
     }
+    sub date_of_date {
+	my $self = shift;
+	my @l = localtime $self->{epoch};
+	sprintf "%04d-%02d-%02d", $l[5]+1900, $l[4]+1, $l[3];
+    }
 }
 
 my $small_font = 'sans 8';
@@ -204,7 +209,14 @@ sub normal_repeater {
 sub show_date_by_index_in_emacs {
     my($index) = @_;
     my $date = $lb_contents[$index];
-    die "No date at index $index" if !$date;
+    if (!$date) {
+	# probably a date separator --- look for the next entry and use it
+	if ($lb_contents[$index+1]) {
+	    $date = $lb_contents[$index+1];
+	} else {
+	    return;
+	}
+    }
     $lb->after(100, sub { show_date_in_emacs($date) }); # do it after the buttonrelease event
 }
 
@@ -256,7 +268,14 @@ sub update_lb {
     if (!@dates) {
 	$lb->insert("end", "<no dates>");
     } else {
+	my $last_day;
 	for my $date (@dates) {
+	    my $this_day = $date->date_of_date;
+	    if (!defined $last_day || $this_day ne $last_day) {
+		$lb->insert('end', '  ' . $this_day);
+		push @lb_contents, undef;
+		$last_day = $this_day;
+	    }
 	    $lb->insert("end", $date->formatted_text);
 	    push @lb_contents, $date;
 	}
@@ -265,16 +284,20 @@ sub update_lb {
 
 sub colorize_entries {
     for my $i (0 .. $#lb_contents) {
-	my $duration = $lb_contents[$i]->{epoch} - time;
-	my($fg, $bg) = ('black', 'green');
-	if ($duration < 3600) {
-	    ($fg, $bg) = ('white', 'red');
-	} elsif ($duration < 86400) {
-	    ($fg, $bg) = ('black', 'orange');
-	} elsif ($duration < 86400*7) {
-	    ($fg, $bg) = ('black', 'yellow');
+	my($fg, $bg) = ('black', 'grey80');
+	if ($lb_contents[$i]) {
+	    my $duration = $lb_contents[$i]->{epoch} - time;
+	    if ($duration < 3600) {
+		($fg, $bg) = ('white', 'red');
+	    } elsif ($duration < 86400) {
+		($fg, $bg) = ('black', 'orange');
+	    } elsif ($duration < 86400*7) {
+		($fg, $bg) = ('black', 'yellow');
+	    } else {
+		($fg, $bg) = ('black', 'green');
+	    }
 	}
-	$lb->itemconfigure($i, -foreground => $fg, -background => $bg);
+	$lb->itemconfigure($i, -foreground => $fg, -background => $bg, -selectforeground => $fg, -selectbackground => $bg);
     }
 }
 
