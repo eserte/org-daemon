@@ -15,6 +15,8 @@
 use strict;
 use 5.008; # scalar open
 
+our $VERSION = '1.00';
+
 use Getopt::Long;
 use Time::Local qw(timelocal);
 use Tk qw(tkinit Ev MainLoop);
@@ -62,14 +64,24 @@ my $default_early_warning = 30*60;
 my $recheck_interval;
 my $debug;
 my $use_emacsclient_eval = 1;
+my $show_version;
 GetOptions(
 	   "d|debug!" => \$debug,
 	   "recheck-interval=i" => \$recheck_interval,
 	   "early-warning=i" => \$default_early_warning,
 	   "small-font=s" => \$small_font,
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
+	   'v|version' => \$show_version,
 	  )
-    or die "$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] orgfile ...";
+    or die <<EOF;
+$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] orgfile ...
+$0 --version
+EOF
+
+if ($show_version) {
+    print "org-daemon $VERSION\n";
+    exit 0;
+}
 
 if (!$recheck_interval) {
     if ($debug) {
