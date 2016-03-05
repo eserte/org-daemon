@@ -3,6 +3,7 @@ branches:
   - /appveyor/
 language: perl
 perl:
+  - "5.22"
   - "5.20"
   - "5.18"
   - "5.16"
@@ -10,4 +11,4 @@ perl:
   - "5.12"
   - "5.10"
   - "5.8"
-sudo: true
+sudo: false
