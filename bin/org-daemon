@@ -23,7 +23,8 @@ use Tk qw(tkinit Ev MainLoop);
 use Tk::PNG;
 
 {
-    package Emacs::Org::Daemon::Date;
+    package # hide from PAUSE indexer
+	Emacs::Org::Daemon::Date;
     sub new {
 	my($class, %args) = @_;
 	bless {%args}, $class;
