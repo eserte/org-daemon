@@ -18,6 +18,7 @@ use 5.008; # scalar open
 our $VERSION = '1.00';
 
 use Getopt::Long;
+use List::Util qw(max);
 use Time::Local qw(timelocal);
 use Tk qw(tkinit Ev MainLoop);
 use Tk::PNG;
@@ -154,9 +155,10 @@ EOF
 $mw->Icon(-image => $org_logo); 
 
 my $lb = $mw->Scrolled("Listbox",
-		       -width => 60,
-		       -height => 6,
+		       -width => 100,
+		       -height => 8,
 		       -scrollbars => "osoe",
+		       -font => 'Courier 9', # a fixed font
 		      )->pack(qw(-fill both -expand 1));
 $lb->bind("<Double-1>" => sub {
 	      show_date_by_index_in_emacs(shift->xyIndex);
@@ -273,9 +275,45 @@ sub update_lb {
 	my $today_end = timelocal 59,59,23,@l1[3..5];
 	my @l2 = localtime $now+86400; # XXX which is not correct during DST switches, but well
 	my $tomorrow_end = timelocal 59,59,23,@l2[3..5];
-	
-	my $last_day;
+
+	# XXX find a solution with less parsing here (i.e. $date
+	# should have more information available)
+	my @segmented_dates; # ([$dateobj, [$text, $tags, $scheduled, $orgdate]], ...)
 	for my $date (@dates) {
+	    my $formatted_text = $date->formatted_text;
+	    if ($formatted_text =~ s{\s+(<.*>)$}{}) {
+		my $orgdate = $1;
+		my($scheduled, $tags);
+		if ($formatted_text =~ s{\s+(SCHEDULED:)$}{}) {
+		    $scheduled = $1;
+		}
+		if ($formatted_text =~ s{\s+(:\S+:)$}{}) {
+		    $tags = $1;
+		}
+		my $text = $formatted_text;
+		push @segmented_dates, [$date, [$text, $tags, $scheduled, $orgdate]];
+	    } else {
+		warn "Can't parse " . $date->formatted_text . "...\n";
+		push @segmented_dates, [$date];
+	    }
+	}
+	# Maximum lengths for sprintf
+	my(@max);
+	for my $i (0..3) {
+	    $max[$i] = max map {
+		my $text_segments = $_->[1];
+		if ($text_segments && defined $text_segments->[$i]) {
+		    length $text_segments->[$i];
+		} else {
+		    0;
+		}
+	    } @segmented_dates;
+	}
+	my $fmt = join(' ', map { '%-' . $_ . 's' } @max);
+
+	my $last_day;
+	for my $segmented_date (@segmented_dates) {
+	    my($date, $text_segments) = @$segmented_date;
 	    my $this_day = $date->date_of_date;
 	    if (!defined $last_day || $this_day ne $last_day) {
 		my $today_or_tomorrow;
@@ -290,7 +328,12 @@ sub update_lb {
 		push @lb_contents, undef;
 		$last_day = $this_day;
 	    }
-	    $lb->insert("end", $date->formatted_text);
+	    if ($text_segments) {
+		no warnings 'uninitialized';
+		$lb->insert('end', sprintf $fmt, @$text_segments);
+	    } else {
+		$lb->insert("end", $date->formatted_text);
+	    }
 	    push @lb_contents, $date;
 	}
     }
