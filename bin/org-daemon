@@ -15,7 +15,7 @@
 use strict;
 use 5.008; # scalar open
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 use Getopt::Long;
 use List::Util qw(max);
@@ -72,18 +72,24 @@ my $recheck_interval;
 my $debug;
 my $use_emacsclient_eval = 1;
 my $show_version;
+my $overview_widget = 'hlist';
 GetOptions(
 	   "d|debug!" => \$debug,
 	   "recheck-interval=i" => \$recheck_interval,
 	   "early-warning=i" => \$default_early_warning,
 	   "small-font=s" => \$small_font,
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
+	   'overview-widget=s' => \$overview_widget,
 	   'v|version' => \$show_version,
 	  )
     or die <<EOF;
-$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] orgfile ...
+$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--overview-widget=...] orgfile ...
 $0 --version
 EOF
+
+if ($overview_widget !~ m{^(listbox|hlist)$}i) {
+    die "Valid values for --overview-widget are 'listbox' or 'hlist'.\n";
+}
 
 if ($show_version) {
     print "org-daemon $VERSION\n";
@@ -154,15 +160,36 @@ BUIoz9dd4ccZAAAAAElFTkSuQmCC
 EOF
 $mw->Icon(-image => $org_logo); 
 
-my $lb = $mw->Scrolled("Listbox",
-		       -width => 100,
-		       -height => 8,
-		       -scrollbars => "osoe",
-		       -font => 'Courier 9', # a fixed font
-		      )->pack(qw(-fill both -expand 1));
-$lb->bind("<Double-1>" => sub {
-	      show_date_by_index_in_emacs(shift->xyIndex);
-	  });
+my $lb;
+if ($overview_widget eq 'listbox') {
+    $lb = $mw->Scrolled('Listbox',
+			-width => 100,
+			-height => 8,
+			-scrollbars => "osoe",
+			-font => 'Courier 9', # a fixed font
+		       )->pack(qw(-fill both -expand 1));
+    $lb->bind("<Double-1>" => sub {
+		  show_date_by_index_in_emacs(shift->xyIndex);
+	      });
+} else {
+    require Tk::HList;
+    require Tk::ItemStyle;
+    $lb = $mw->Scrolled('HList',
+			-width => 100,
+			-height => 10,
+			-scrollbars => 'osoe',
+			-selectbackground => '#4a6984',
+			-selectmode => 'browse',
+			-header => 0,
+			-columns => 3,
+			-command => sub {
+			    my $path = shift;
+			    show_date_by_index_in_emacs($path);
+			},
+		       )->pack(qw(-fill both -expand 1));
+    $lb->anchorClear;
+    $lb->columnWidth(0, 400);
+}
 $lb->Button(-padx => 0, -pady => 0, -borderwidth => 1,
 	    -font => $small_font,
 	    -text => 'Update',
@@ -263,12 +290,20 @@ sub tk_do_one_iteration {
 }
 
 sub update_lb {
-    $lb->delete(0, "end");
+    if ($overview_widget eq 'listbox') {
+	$lb->delete(0, "end");
+    } else {
+	$lb->delete('all');
+    }
     @lb_contents = ();
     my @dates = map { @{ $_->{dates} } } values %org_files;
     @dates = sort { $a->{epoch} <=> $b->{epoch} } @dates;
     if (!@dates) {
-	$lb->insert("end", "<no dates>");
+	if ($overview_widget eq 'listbox') {
+	    $lb->insert("end", "<no dates>");
+	} else {
+	    $lb->add(0, -text => '<no dates>');
+	}
     } else {
 	my $now = time;
 	my @l1 = localtime $now;
@@ -312,7 +347,9 @@ sub update_lb {
 	my $fmt = join(' ', map { '%-' . $_ . 's' } @max);
 
 	my $last_day;
+	my $lb_i = -1;
 	for my $segmented_date (@segmented_dates) {
+	    $lb_i++;
 	    my($date, $text_segments) = @$segmented_date;
 	    my $this_day = $date->date_of_date;
 	    if (!defined $last_day || $this_day ne $last_day) {
@@ -324,37 +361,69 @@ sub update_lb {
 		} else {
 		    $today_or_tomorrow = '';
 		}
-		$lb->insert('end', '  ' . $this_day . $today_or_tomorrow);
+		my $text = '  ' . $this_day . $today_or_tomorrow;
+		if ($overview_widget eq 'listbox') {
+		    $lb->insert('end', $text);
+		} else {
+		    $lb->add($lb_i, -text => $text);
+		    $lb_i++;
+		}
 		push @lb_contents, undef;
 		$last_day = $this_day;
 	    }
+	    my $text;
 	    if ($text_segments) {
-		no warnings 'uninitialized';
-		$lb->insert('end', sprintf $fmt, @$text_segments);
+		if ($overview_widget eq 'listbox') {
+		    no warnings 'uninitialized';
+		    $lb->insert('end', sprintf $fmt, @$text_segments);
+		} else {
+		    $lb->add       ($lb_i,    -text => $text_segments->[0]); # text
+		    $lb->itemCreate($lb_i, 1, -text => $text_segments->[3]); # orgdate
+		    $lb->itemCreate($lb_i, 2, -text => $text_segments->[1]); # tags
+		}
 	    } else {
-		$lb->insert("end", $date->formatted_text);
+		if ($overview_widget eq 'listbox') {
+		    $lb->insert("end", $date->formatted_text);
+		} else {
+		    $lb->add($lb_i, -text => $date->formatted_text);
+		}
 	    }
 	    push @lb_contents, $date;
 	}
     }
 }
 
-sub colorize_entries {
-    for my $i (0 .. $#lb_contents) {
-	my($fg, $bg) = ('black', 'grey80');
-	if ($lb_contents[$i]) {
-	    my $duration = $lb_contents[$i]->{epoch} - time;
-	    if ($duration < 3600) {
-		($fg, $bg) = ('white', 'red');
-	    } elsif ($duration < 86400) {
-		($fg, $bg) = ('black', 'orange');
-	    } elsif ($duration < 86400*7) {
-		($fg, $bg) = ('black', 'yellow');
+{
+    my %hl_is;
+    sub colorize_entries {
+	for my $i (0 .. $#lb_contents) {
+	    my($fg, $bg) = ('black', 'grey80');
+	    if ($lb_contents[$i]) {
+		my $duration = $lb_contents[$i]->{epoch} - time;
+		if ($duration < 3600) {
+		    ($fg, $bg) = ('white', 'red');
+		} elsif ($duration < 86400) {
+		    ($fg, $bg) = ('black', 'orange');
+		} elsif ($duration < 86400*7) {
+		    ($fg, $bg) = ('black', 'yellow');
+		} else {
+		    ($fg, $bg) = ('black', 'green');
+		}
+	    }
+	    if ($overview_widget eq 'listbox') {
+		$lb->itemconfigure($i, -foreground => $fg, -background => $bg, -selectforeground => $fg, -selectbackground => $bg);
 	    } else {
-		($fg, $bg) = ('black', 'green');
+		my $style = $hl_is{$fg}->{$bg};
+		if (!$style) {
+		    $style = $hl_is{$fg}->{$bg} = $lb->ItemStyle('text', -foreground => $fg, -background => $bg, -selectforeground => $fg, -selectbackground => $bg);
+		}
+		$lb->entryconfigure($i, -style => $style);
+		eval {
+		    $lb->itemConfigure($i, 1, -style => $style);
+		    $lb->itemConfigure($i, 2, -style => $style);
+		};
 	    }
 	}
-	$lb->itemconfigure($i, -foreground => $fg, -background => $bg, -selectforeground => $fg, -selectbackground => $bg);
     }
 }
 
@@ -753,6 +822,11 @@ appointment list by default, and check every 3 seconds instead every
 If there are problems with the usage of C<emacsclient --eval>, then
 this option may be used for simple non-eval emacsclient usage. If this
 is used, then a referenced org entry is not opened automatically.
+
+=item --overview-widget=I<widgettype>
+
+Select widget for overview window. Default is C<hlist>, another
+possible value is C<listbox>.
 
 =back
 
