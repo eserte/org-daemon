@@ -67,3 +67,6 @@
 
 .travis.yml
 appveyor.yml
+^nytprof\.out$
+^nytprof/
+^App-orgdaemon-\d+\.\d+\.tar\.gz$

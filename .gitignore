@@ -4,3 +4,7 @@
 /blib
 /pm_to_blib
 /App-orgdaemon-*.tar.gz
+/.prove
+/cover_db/
+/nytprof.out
+/nytprof/
