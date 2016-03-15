@@ -10,6 +10,7 @@ use FindBin;
 use Encode qw(encode_utf8);
 use File::Temp qw(tempdir);
 use Test::More;
+use Time::Local qw(timelocal);
 BEGIN {
     if (!eval q{ use Time::Fake; 1 }) {
 	plan skip_all => 'Time::Fake not available';
@@ -30,7 +31,8 @@ EOF
     is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename)], [], 'empty file';
 }
 
-Time::Fake->offset(1451602800); # 2016-01-01T00:00:00+01:00
+my $epoch = timelocal(0,0,0,1,1-1,2016);
+Time::Fake->offset($epoch);
 
 { # date in far past
     my $tmp = create_org_file <<'EOF';
@@ -59,7 +61,7 @@ EOF
 EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     is scalar(@dates), 1;
-    is $dates[0]->{epoch}, 1451689200;
+    is $dates[0]->{epoch}, $epoch + 86400;
     is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa 0:00>';
     is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa 0:00>|2016-01-02 Sa '; # strange id formatting...
     is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa 0:00>';
