@@ -542,7 +542,7 @@ sub find_dates_in_org_file {
     while(defined(my $textline = <$fh>)) {
 	$linenumber++;
 	chomp $textline;
-	if ($textline =~ m{-\*-.*\bcoding:\s*([^;]+);.*-\*-}) {
+	if ($textline =~ m{-\*-.*\bcoding:\s*([^; ]+).*-\*-}) {
 	    my $encoding = $1;
 	    binmode $fh, ':encoding(' . $encoding . ')';
 	}
