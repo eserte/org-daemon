@@ -82,7 +82,7 @@ my $lb;
 my @lb_contents;
 my %org_files;
 my %open_warning;
-my %window_for_date;    # ($date_id -> $tk_window), for a (maybe) currently display date
+our %window_for_date;    # ($date_id -> $tk_window), for a (maybe) currently display date; "our" just for testing
 my %seen_early_warning; # ($date_id -> 1)
 my %seen_due_date;      # ($date_id -> 1)
 
