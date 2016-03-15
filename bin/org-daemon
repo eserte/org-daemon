@@ -12,6 +12,9 @@
 # WWW:  http://www.rezic.de/eserte/
 #
 
+package # hide from PAUSE indexer
+    App::orgdaemon;
+
 use strict;
 use 5.008; # scalar open
 
@@ -73,163 +76,15 @@ my $debug;
 my $use_emacsclient_eval = 1;
 my $show_version;
 my $overview_widget = 'hlist';
-GetOptions(
-	   "d|debug!" => \$debug,
-	   "recheck-interval=i" => \$recheck_interval,
-	   "early-warning=i" => \$default_early_warning,
-	   "small-font=s" => \$small_font,
-	   'emacsclient-eval!' => \$use_emacsclient_eval,
-	   'overview-widget=s' => \$overview_widget,
-	   'v|version' => \$show_version,
-	  )
-    or die <<EOF;
-$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--overview-widget=...] orgfile ...
-$0 --version
-EOF
 
-if ($overview_widget !~ m{^(listbox|hlist)$}i) {
-    die "Valid values for --overview-widget are 'listbox' or 'hlist'.\n";
-}
-
-if ($show_version) {
-    print "org-daemon $VERSION\n";
-    exit 0;
-}
-
-if (!$recheck_interval) {
-    if ($debug) {
-	$recheck_interval = 3;
-    } else {
-	$recheck_interval = 60;
-    }
-}
-if ($recheck_interval < 1) {
-    die "Invalid --recheck-interval, must be 1 second or larger.\n";
-}
-
-my %open_warning;
+my $mw;
+my $lb;
+my @lb_contents;
 my %org_files;
+my %open_warning;
 my %window_for_date;    # ($date_id -> $tk_window), for a (maybe) currently display date
 my %seen_early_warning; # ($date_id -> 1)
 my %seen_due_date;      # ($date_id -> 1)
-my @lb_contents;
-{
-    my @org_files = @ARGV;
-    if (!@org_files) {
-	die "No org files given, exiting...\n";
-    }
-    %org_files = map { ($_, {}) } @org_files;
-}
-
-my $mw = tkinit;
-$mw->iconify if !$debug;
-
-# Taken from http://orgmode.org/org-mode-unicorn-logo.png, scaled down
-# to 32x32 and encoded using "mmencode -b"
-my $org_logo = $mw->Photo
-    (-format => 'png',
-     -data => <<EOF);
-iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAA
-CXBIWXMAAA9hAAAPYQGoP6dpAAAAB3RJTUUH3wUGBTUoU3h8UQAAAB1pVFh0Q29tbWVudAAA
-AAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAFK0lEQVRYw92XW2xURRjHfzPn7G5Lu9sutBRa
-CmWpBYqRm1wSExEVSkTDxYSEaAwJIUII8GAgpvhkQiERMTFR8AVIfEQIDyghEWsikEIUY+VS
-uZRLK70Xena7dPecmfGhy1KktHLVOMl5OXPmfP/v8v/+3whjjOFfXPJZGuvP12cGQCmFEOLZ
-AzDGoLXGsiwaGhpwHOfZA2hra2P//v3Ytk0oFLpn3x7o4J2QJWJRok03UJ5LIDtETvFo7gSz
-o6uLYaEQpL7te66+vp6amhri8TgrV65ECHHPPoDolwXGgBBoz+PU7l1cqzmG09yEcpP4Q7nk
-FxYxbcFC2krK2P39UT7fsJ5YMklnZyejR4wAoKqqCsdxWLx4MbNnz04X4N/rQDyIhrG2Vg5t
-XEfL+TMgQAiJEQJLKS6Hh9NQOAYnmIPp7mZjtuTosFHMeX0+/u4YlZWVrFq1ihUrVuDz+QZM
-0X0AjNYk43G+Wf0ebRfqsP3+3rBhSFg+qktf4FZmVjp3GkNWLErAZ9PS3kng5k1279lDJBLB
-8zxs2/7nfUB7HkJKftxRRfOZWnwZmenQSW34ufi5XuNao43BAFppJrw4gz+lHy93KFt37iQS
-ieC67qDG7wVgDNK2aa07x9mD+8gMh9HK6w0Thrg/QDSQiQC0EIhUwRUXFPDZunWsX7qYwqIi
-1n6ynU7HQUrr4TqhMRqA41/uwDckC+26d7EhsLTG1gqTfgdSSKLxbgDemD4drlzCAg4dP4Fl
-SVzPGxRAOkZCWiSiDm1/1CGlRCuV8h4SlkUw0UPu7W7as+7yWBuN0x1n7rr1zJg4gdziMXRF
-o3x9+DCRokJmlpc/nBa01J1Fucl03rUQ2Mrj+NhJAIxvbcTWCtGHUlJKpBAc+62Wi11daCCp
-FGu3f8qqrduoPn2aKzea+PXChX614J4q6em6lfactP+CaCCDn8ZO4qWr55nWcIlTJePxG4j2
-9OB6Hj7bBgRZGQGklHhKEQ6FuNjYSOWur8gPh5lUUsLUsrKBAfiHZCGkxGidLj5PSsrabvDL
-qFJagmEKnQ4yXJfOpMv7ixZRXDCcq83NCODIyVM0dXQwJBBA94mSE4vx8pQpA9cAQH7ZRCzb
-h1GKhGUjMNjGMK6jmUt5I7ntC3A5byRKKSaXjmPZa68SDgbT59csWcKRmpN8ceAAN6NRno9E
-yMvNwWjDnKlTB2GB1mTl5ZM/fiJCKVpCQ6nLH4Vfe2S4SWZdv9AnKTCzvJxwMIjWGpV6XM+j
-YvYsDlRtYc3SJQzLyUEKwdY1q/H77EE6Yar/O0032PvWXJwRxVQXjaOoq4PS9iaGxR2u5+Zz
-cswEPGNYPm8ea99eOqCIpWcBrbGkHCQFQmC0JjSykAVbdnBw03pyC4q5nDeSxtw8pNbpJqSV
-orG1tX+P+hk6HmT8PhoKKTHGUFaxkDc3f0xxcwMimUQJiWfZJK1evNKy+L2+nouNDU9+Jryj
-2eXL3mHDpg+ZPKqQ20mXpNYIq7e9SiFo6uhg77eH0SldeNT1QDk2WiOkJBqLceLsOfZ+9x11
-164RDgbxlEJKya1olAPbtlJSUICQEvEkp2KRylswO5uKWTPZs7mSD5YvJ+G6WJaFSGnB8dpa
-ZJ/e8dTGctuyeLdiPvurtlBSUIDWGp/P5mJDY0oXzNMHoLRmeDjMno82s/SVOQggFo8/VhHa
-D/NxXzptWLYM27Jpam9/7LH5kZfW2uz7odoYY4yn1CP9Qzzu3fB2IkFmIPDkafi/vJz+JwH8
-BUIoz9dd4ccZAAAAAElFTkSuQmCC
-EOF
-$mw->Icon(-image => $org_logo); 
-
-my $lb;
-if ($overview_widget eq 'listbox') {
-    $lb = $mw->Scrolled('Listbox',
-			-width => 100,
-			-height => 8,
-			-scrollbars => "osoe",
-			-font => 'Courier 9', # a fixed font
-		       )->pack(qw(-fill both -expand 1));
-    $lb->bind("<Double-1>" => sub {
-		  show_date_by_index_in_emacs(shift->xyIndex);
-	      });
-} else {
-    require Tk::HList;
-    require Tk::ItemStyle;
-    $lb = $mw->Scrolled('HList',
-			-width => 100,
-			-height => 10,
-			-scrollbars => 'osoe',
-			-selectbackground => '#4a6984',
-			-selectmode => 'browse',
-			-header => 0,
-			-columns => 3,
-			-command => sub {
-			    my $path = shift;
-			    show_date_by_index_in_emacs($path);
-			},
-		       )->pack(qw(-fill both -expand 1));
-    $lb->anchorClear;
-    $lb->columnWidth(0, 400);
-}
-$lb->Button(-padx => 0, -pady => 0, -borderwidth => 1,
-	    -font => $small_font,
-	    -text => 'Update',
-	    -command => \&tk_do_one_iteration,
-	   )->place(-relx => 1, -rely => 1, -anchor => 'se');
-
-tk_do_one_iteration();
-if ($recheck_interval == 60) {
-    # synchronize with full minute, only implemented for recheck_interval=60
-    my(@l) = localtime;
-    my $first_delay = $recheck_interval - $l[0];
-    if ($first_delay) {
-	$lb->after($first_delay*1000, sub {
-		       tk_do_one_iteration();
-		       normal_repeater();
-		   });
-    } else {
-	normal_repeater();
-    }
-} else {
-    normal_repeater();
-}
-
-$mw->protocol('WM_DELETE_WINDOW', sub {
-		  return if ($mw->messageBox
-			     (-icon => "question",
-			      -title => "Exit org-daemon",
-			      -message => "Really exit org-daemon?",
-			      -type => "YesNo",
-			      -default => 'No',
-			     ) =~ /no/i);
-		  $mw->destroy;
-	      });
-
-# emacsclient does not start if a directory is missing,
-# so make sure we change into a non-removable directory.
-chdir '/';
-
-#$mw->WidgetDump;
-MainLoop;
 
 sub normal_repeater {
     $lb->repeat($recheck_interval*1000, sub { tk_do_one_iteration() });
@@ -779,6 +634,159 @@ sub open_warning {
     }
     $open_warning{$file}++;
 }
+
+return 1 if caller;
+
+GetOptions(
+	   "d|debug!" => \$debug,
+	   "recheck-interval=i" => \$recheck_interval,
+	   "early-warning=i" => \$default_early_warning,
+	   "small-font=s" => \$small_font,
+	   'emacsclient-eval!' => \$use_emacsclient_eval,
+	   'overview-widget=s' => \$overview_widget,
+	   'v|version' => \$show_version,
+	  )
+    or die <<EOF;
+$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--overview-widget=...] orgfile ...
+$0 --version
+EOF
+
+if ($overview_widget !~ m{^(listbox|hlist)$}i) {
+    die "Valid values for --overview-widget are 'listbox' or 'hlist'.\n";
+}
+
+if ($show_version) {
+    print "org-daemon $VERSION\n";
+    exit 0;
+}
+
+if (!$recheck_interval) {
+    if ($debug) {
+	$recheck_interval = 3;
+    } else {
+	$recheck_interval = 60;
+    }
+}
+if ($recheck_interval < 1) {
+    die "Invalid --recheck-interval, must be 1 second or larger.\n";
+}
+
+{
+    my @org_files = @ARGV;
+    if (!@org_files) {
+	die "No org files given, exiting...\n";
+    }
+    %org_files = map { ($_, {}) } @org_files;
+}
+
+$mw = tkinit;
+$mw->iconify if !$debug;
+
+# Taken from http://orgmode.org/org-mode-unicorn-logo.png, scaled down
+# to 32x32 and encoded using "mmencode -b"
+my $org_logo = $mw->Photo
+    (-format => 'png',
+     -data => <<EOF);
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAA
+CXBIWXMAAA9hAAAPYQGoP6dpAAAAB3RJTUUH3wUGBTUoU3h8UQAAAB1pVFh0Q29tbWVudAAA
+AAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAFK0lEQVRYw92XW2xURRjHfzPn7G5Lu9sutBRa
+CmWpBYqRm1wSExEVSkTDxYSEaAwJIUII8GAgpvhkQiERMTFR8AVIfEQIDyghEWsikEIUY+VS
+uZRLK70Xena7dPecmfGhy1KktHLVOMl5OXPmfP/v8v/+3whjjOFfXPJZGuvP12cGQCmFEOLZ
+AzDGoLXGsiwaGhpwHOfZA2hra2P//v3Ytk0oFLpn3x7o4J2QJWJRok03UJ5LIDtETvFo7gSz
+o6uLYaEQpL7te66+vp6amhri8TgrV65ECHHPPoDolwXGgBBoz+PU7l1cqzmG09yEcpP4Q7nk
+FxYxbcFC2krK2P39UT7fsJ5YMklnZyejR4wAoKqqCsdxWLx4MbNnz04X4N/rQDyIhrG2Vg5t
+XEfL+TMgQAiJEQJLKS6Hh9NQOAYnmIPp7mZjtuTosFHMeX0+/u4YlZWVrFq1ihUrVuDz+QZM
+0X0AjNYk43G+Wf0ebRfqsP3+3rBhSFg+qktf4FZmVjp3GkNWLErAZ9PS3kng5k1279lDJBLB
+8zxs2/7nfUB7HkJKftxRRfOZWnwZmenQSW34ufi5XuNao43BAFppJrw4gz+lHy93KFt37iQS
+ieC67qDG7wVgDNK2aa07x9mD+8gMh9HK6w0Thrg/QDSQiQC0EIhUwRUXFPDZunWsX7qYwqIi
+1n6ynU7HQUrr4TqhMRqA41/uwDckC+26d7EhsLTG1gqTfgdSSKLxbgDemD4drlzCAg4dP4Fl
+SVzPGxRAOkZCWiSiDm1/1CGlRCuV8h4SlkUw0UPu7W7as+7yWBuN0x1n7rr1zJg4gdziMXRF
+o3x9+DCRokJmlpc/nBa01J1Fucl03rUQ2Mrj+NhJAIxvbcTWCtGHUlJKpBAc+62Wi11daCCp
+FGu3f8qqrduoPn2aKzea+PXChX614J4q6em6lfactP+CaCCDn8ZO4qWr55nWcIlTJePxG4j2
+9OB6Hj7bBgRZGQGklHhKEQ6FuNjYSOWur8gPh5lUUsLUsrKBAfiHZCGkxGidLj5PSsrabvDL
+qFJagmEKnQ4yXJfOpMv7ixZRXDCcq83NCODIyVM0dXQwJBBA94mSE4vx8pQpA9cAQH7ZRCzb
+h1GKhGUjMNjGMK6jmUt5I7ntC3A5byRKKSaXjmPZa68SDgbT59csWcKRmpN8ceAAN6NRno9E
+yMvNwWjDnKlTB2GB1mTl5ZM/fiJCKVpCQ6nLH4Vfe2S4SWZdv9AnKTCzvJxwMIjWGpV6XM+j
+YvYsDlRtYc3SJQzLyUEKwdY1q/H77EE6Yar/O0032PvWXJwRxVQXjaOoq4PS9iaGxR2u5+Zz
+cswEPGNYPm8ea99eOqCIpWcBrbGkHCQFQmC0JjSykAVbdnBw03pyC4q5nDeSxtw8pNbpJqSV
+orG1tX+P+hk6HmT8PhoKKTHGUFaxkDc3f0xxcwMimUQJiWfZJK1evNKy+L2+nouNDU9+Jryj
+2eXL3mHDpg+ZPKqQ20mXpNYIq7e9SiFo6uhg77eH0SldeNT1QDk2WiOkJBqLceLsOfZ+9x11
+164RDgbxlEJKya1olAPbtlJSUICQEvEkp2KRylswO5uKWTPZs7mSD5YvJ+G6WJaFSGnB8dpa
+ZJ/e8dTGctuyeLdiPvurtlBSUIDWGp/P5mJDY0oXzNMHoLRmeDjMno82s/SVOQggFo8/VhHa
+D/NxXzptWLYM27Jpam9/7LH5kZfW2uz7odoYY4yn1CP9Qzzu3fB2IkFmIPDkafi/vJz+JwH8
+BUIoz9dd4ccZAAAAAElFTkSuQmCC
+EOF
+$mw->Icon(-image => $org_logo); 
+
+if ($overview_widget eq 'listbox') {
+    $lb = $mw->Scrolled('Listbox',
+			-width => 100,
+			-height => 8,
+			-scrollbars => "osoe",
+			-font => 'Courier 9', # a fixed font
+		       )->pack(qw(-fill both -expand 1));
+    $lb->bind("<Double-1>" => sub {
+		  show_date_by_index_in_emacs(shift->xyIndex);
+	      });
+} else {
+    require Tk::HList;
+    require Tk::ItemStyle;
+    $lb = $mw->Scrolled('HList',
+			-width => 100,
+			-height => 10,
+			-scrollbars => 'osoe',
+			-selectbackground => '#4a6984',
+			-selectmode => 'browse',
+			-header => 0,
+			-columns => 3,
+			-command => sub {
+			    my $path = shift;
+			    show_date_by_index_in_emacs($path);
+			},
+		       )->pack(qw(-fill both -expand 1));
+    $lb->anchorClear;
+    $lb->columnWidth(0, 400);
+}
+$lb->Button(-padx => 0, -pady => 0, -borderwidth => 1,
+	    -font => $small_font,
+	    -text => 'Update',
+	    -command => \&tk_do_one_iteration,
+	   )->place(-relx => 1, -rely => 1, -anchor => 'se');
+
+tk_do_one_iteration();
+if ($recheck_interval == 60) {
+    # synchronize with full minute, only implemented for recheck_interval=60
+    my(@l) = localtime;
+    my $first_delay = $recheck_interval - $l[0];
+    if ($first_delay) {
+	$lb->after($first_delay*1000, sub {
+		       tk_do_one_iteration();
+		       normal_repeater();
+		   });
+    } else {
+	normal_repeater();
+    }
+} else {
+    normal_repeater();
+}
+
+$mw->protocol('WM_DELETE_WINDOW', sub {
+		  return if ($mw->messageBox
+			     (-icon => "question",
+			      -title => "Exit org-daemon",
+			      -message => "Really exit org-daemon?",
+			      -type => "YesNo",
+			      -default => 'No',
+			     ) =~ /no/i);
+		  $mw->destroy;
+	      });
+
+# emacsclient does not start if a directory is missing,
+# so make sure we change into a non-removable directory.
+chdir '/';
+
+#$mw->WidgetDump;
+MainLoop;
 
 __END__
 
