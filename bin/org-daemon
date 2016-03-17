@@ -85,6 +85,7 @@ my %open_warning;
 our %window_for_date;    # ($date_id -> $tk_window), for a (maybe) currently display date; "our" just for testing
 my %seen_early_warning; # ($date_id -> 1)
 my %seen_due_date;      # ($date_id -> 1)
+my $with_move_button;
 
 sub normal_repeater {
     $lb->repeat($recheck_interval*1000, sub { tk_do_one_iteration() });
@@ -349,13 +350,24 @@ sub check_for_alarms {
 		      -anchor => 'e',
 		      %colargs, %smlbtnargs,
 		     )->pack(qw(-side right));
-	    $t->Button(-text => 'Edit',
+	    my @button_opts = (
+			       -anchor => 'w',
+			       -borderwidth => 1,
+			       -highlightthickness => 0,
+			       -padx => 1, -pady => 1,
+			       %colargs, %smlbtnargs,
+			      );			       
+	    if ($with_move_button) {
+		$t->Button(
+			   -text => "\x{2192}",
+			   -command => sub { $t->MoveToplevelWindow($t->screenwidth-60, $t->y) },
+			   @button_opts,
+			  )->pack(qw(-side left));
+	    }
+	    $t->Button(
+		       -text => 'Edit',
 		       -command => sub { show_date_in_emacs($date) },
-		       -anchor => 'w',
-		       -borderwidth => 1,
-		       -highlightthickness => 0,
-		       -padx => 1, -pady => 1,
-		       %colargs, %smlbtnargs,
+		       @button_opts,
 		      )->pack(qw(-side left));
 	    if ($is_early_warning) {
 		$t->{OverflowCounter} =
@@ -645,6 +657,7 @@ GetOptions(
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
 	   'overview-widget=s' => \$overview_widget,
 	   'v|version' => \$show_version,
+	   'move-button!' => \$with_move_button,
 	  )
     or die <<EOF;
 $0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--overview-widget=...] orgfile ...
@@ -835,6 +848,12 @@ is used, then a referenced org entry is not opened automatically.
 
 Select widget for overview window. Default is C<hlist>, another
 possible value is C<listbox>.
+
+=item --move-button
+
+The early warning and alarm windows will get an additional "move"
+button (displayed with a right arrow: E<x2192>) for moving the window
+quickly to the right screen border.
 
 =back
 
