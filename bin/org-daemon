@@ -172,7 +172,7 @@ sub update_lb {
 	my @segmented_dates; # ([$dateobj, [$text, $tags, $scheduled, $orgdate]], ...)
 	for my $date (@dates) {
 	    my $formatted_text = $date->formatted_text;
-	    if ($formatted_text =~ s{\s+(<.*>)$}{}) {
+	    if ($formatted_text =~ s{\s+(<.*?>)}{}) {
 		my $orgdate = $1;
 		my($scheduled, $tags);
 		if ($formatted_text =~ s{\s+(SCHEDULED:)$}{}) {
