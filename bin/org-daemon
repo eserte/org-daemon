@@ -357,6 +357,11 @@ sub check_for_alarms {
 			       -padx => 1, -pady => 1,
 			       %colargs, %smlbtnargs,
 			      );			       
+	    $t->Button(
+		       -text => 'Edit',
+		       -command => sub { show_date_in_emacs($date) },
+		       @button_opts,
+		      )->pack(qw(-side left));
 	    if ($with_move_button) {
 		$t->Button(
 			   -text => "\x{2192}",
@@ -364,11 +369,6 @@ sub check_for_alarms {
 			   @button_opts,
 			  )->pack(qw(-side left));
 	    }
-	    $t->Button(
-		       -text => 'Edit',
-		       -command => sub { show_date_in_emacs($date) },
-		       @button_opts,
-		      )->pack(qw(-side left));
 	    if ($is_early_warning) {
 		$t->{OverflowCounter} =
 		    $t->repeat(1000, sub {
