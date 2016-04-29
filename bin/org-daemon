@@ -356,18 +356,23 @@ sub check_for_alarms {
 			       -highlightthickness => 0,
 			       -padx => 1, -pady => 1,
 			       %colargs, %smlbtnargs,
-			      );			       
-	    $t->Button(
-		       -text => 'Edit',
-		       -command => sub { show_date_in_emacs($date) },
-		       @button_opts,
-		      )->pack(qw(-side left));
+			      );
+	    my $edit_b = $t->Button(
+				    -text => 'Edit',
+				    -command => sub { show_date_in_emacs($date) },
+				    @button_opts,
+				   )->pack(qw(-side left));
+	    my $mv_b;
 	    if ($with_move_button) {
-		$t->Button(
-			   -text => "\x{2192}",
-			   -command => sub { $t->MoveToplevelWindow($t->screenwidth-60, $t->y) },
-			   @button_opts,
-			  )->pack(qw(-side left));
+		$mv_b = $t->Button(
+				   -text => "\x{2192}",
+				   -command => sub { $t->MoveToplevelWindow($t->screenwidth-60, $t->y) },
+				   @button_opts,
+				  )->pack(qw(-side left));
+	    }
+	    $t->bind('<Control-e>' => sub { $edit_b->invoke });
+	    if ($mv_b) {
+		$t->bind('<Control-m>' => sub { $mv_b->invoke });
 	    }
 	    if ($is_early_warning) {
 		$t->{OverflowCounter} =
