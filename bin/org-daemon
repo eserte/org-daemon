@@ -698,7 +698,13 @@ if ($recheck_interval < 1) {
 }
 
 $mw = tkinit;
-$mw->iconify if !$debug;
+if (!$debug) {
+    if ($^O eq 'darwin') { # XXX actually should check for Xquartz or so
+	$mw->after(1000, sub { $mw->iconify }); # XXX hack --- the window gets invisible and unselectable if immediately iconified. See https://rt.cpan.org/Ticket/Display.html?id=114203
+    } else {
+	$mw->iconify;
+    }
+}
 
 # Taken from http://orgmode.org/org-mode-unicorn-logo.png, scaled down
 # to 32x32 and encoded using "mmencode -b"
