@@ -678,7 +678,10 @@ GetOptions(
 	   'move-button!' => \$with_move_button,
 	  )
     or die <<EOF;
-$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--emacsclient-cmd=...] [--overview-widget=...] orgfile ...
+$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds]
+\t[--no-emacsclient-eval] [--emacsclient-cmd=...]
+\t[--overview-widget=...] [--move-button]
+\torgfile ...
 $0 --version
 EOF
 
@@ -833,7 +836,10 @@ org-daemon - watch for appointments in org-mode files
 
 =head1 SYNOPSIS
 
-    org-daemon [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] orgfile ... &
+    org-daemon [--debug] [--early-warning=seconds] [--recheck-interval=seconds] \
+               [--no-emacsclient-eval] [--emacsclient-cmd=...] \
+               [--overview-widget=...] [--move-button] \
+               orgfile ... &
 
 =head1 DESCRIPTION
 
