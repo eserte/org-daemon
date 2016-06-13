@@ -18,7 +18,7 @@ package # hide from PAUSE indexer
 use strict;
 use 5.008; # scalar open
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 use Getopt::Long;
 use List::Util qw(max);
@@ -74,6 +74,7 @@ my $default_early_warning = 30*60;
 my $recheck_interval;
 my $debug;
 my $use_emacsclient_eval = 1;
+my $emacsclient_fmt_cmd;
 my $show_version;
 my $overview_widget = 'hlist';
 
@@ -110,27 +111,38 @@ sub show_date_in_emacs {
     my $file = $date->{file};
     die "No file associated with given date" if !defined $file;
     my @cmd;
-    if ($use_emacsclient_eval) {
-	# XXX escape $file?
-	my $eval = qq{(progn (find-file "$file")};
-	if ($date->{line}) {
-	    $eval .= " (goto-line $date->{line}) (org-show-entry)";
-        }
-	$eval .= qq{ (select-frame-set-input-focus (window-frame)) "Positioning in file $file at line $date->{line}" )};
-	@cmd = ('emacsclient', '--eval', $eval);
-    } else {
-	@cmd = ('emacsclient', '-n',
-	       (defined $date->{line} ? '+'.$date->{line} : ()),
-	       $file,
-	      );
-    }
-    if (eval { require IPC::Run; 1 }) {
-	IPC::Run::run(\@cmd, '>', \my $ignore)
-	    or warn "Failed to run '@cmd'";
-    } else {
-	system @cmd;
+    if ($emacsclient_fmt_cmd) {
+	my $line = defined $date->{line} ? $date->{line} : 1;
+	my $cmd = $emacsclient_fmt_cmd;
+	$cmd =~ s{%l}{$line}g;
+	$cmd =~ s{%f}{$file}g;
+	system $cmd;
 	if ($? != 0) {
-	    warn "Failed to run '@cmd'";
+	    warn "Failed to run '$cmd'";
+	}
+    } else {
+	if ($use_emacsclient_eval) {
+	    # XXX escape $file?
+	    my $eval = qq{(progn (find-file "$file")};
+	    if ($date->{line}) {
+		$eval .= " (goto-line $date->{line}) (org-show-entry)";
+	    }
+	    $eval .= qq{ (select-frame-set-input-focus (window-frame)) "Positioning in file $file at line $date->{line}" )};
+	    @cmd = ('emacsclient', '--eval', $eval);
+	} else {
+	    @cmd = ('emacsclient', '-n',
+		    (defined $date->{line} ? '+'.$date->{line} : ()),
+		    $file,
+		   );
+	}
+	if (eval { require IPC::Run; 1 }) {
+	    IPC::Run::run(\@cmd, '>', \my $ignore)
+		    or warn "Failed to run '@cmd'";
+	} else {
+	    system @cmd;
+	    if ($? != 0) {
+		warn "Failed to run '@cmd'";
+	    }
 	}
     }
 }
@@ -660,12 +672,13 @@ GetOptions(
 	   "early-warning=i" => \$default_early_warning,
 	   "small-font=s" => \$small_font,
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
+	   'emacsclient-cmd=s' => \$emacsclient_fmt_cmd,
 	   'overview-widget=s' => \$overview_widget,
 	   'v|version' => \$show_version,
 	   'move-button!' => \$with_move_button,
 	  )
     or die <<EOF;
-$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--overview-widget=...] orgfile ...
+$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds] [--no-emacsclient-eval] [--emacsclient-cmd=...] [--overview-widget=...] orgfile ...
 $0 --version
 EOF
 
@@ -854,6 +867,14 @@ appointment list by default, and check every 3 seconds instead every
 If there are problems with the usage of C<emacsclient --eval>, then
 this option may be used for simple non-eval emacsclient usage. If this
 is used, then a referenced org entry is not opened automatically.
+
+=item --emacsclient-cmd=I<cmdline ... %l %f ...>
+
+Provide an alternative commandline for emacsclient calls. The
+placeholder strings C<%l> and C<%f> are replaced by line and file.
+Example:
+
+    org-daemon --emacsclient-cmd="ssh otheruser@otherhost emacsclient +%l '%f'" ...
 
 =item --overview-widget=I<widgettype>
 
