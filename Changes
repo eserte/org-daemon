@@ -1,5 +1,14 @@
 Revision history for org-daemon.
 
+1.02	2016-06-13
+	- new option --emacsclient-cmd
+	- new option --move-button
+	- keyboard shortcuts Ctrl-e and Ctrl-m
+	- improved parsing for better display in overview listbox
+	- workaround for Xquartz iconification problem
+	- fix: encoding detection
+	- more tests (for find_dates_in_org_file, with Time::Fake on travis)
+
 1.01	2016-03-09
 	- overview window implemented with Tk::HList
 	- old Tk::Listbox implementation still available with
