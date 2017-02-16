@@ -11,10 +11,16 @@ use Encode qw(encode_utf8);
 use File::Temp qw(tempdir);
 use Test::More;
 use Time::Local qw(timelocal);
+use POSIX qw(tzset);
 BEGIN {
     if (!eval q{ use Time::Fake; 1 }) {
 	plan skip_all => 'Time::Fake not available';
     }
+}
+
+my $can_tzset = $^O !~ m{^(MSWin32|cygwin)$};
+if ($can_tzset) {
+    $ENV{TZ} = 'Europe/Berlin'; tzset;
 }
 
 plan 'no_plan';
@@ -82,6 +88,32 @@ EOF
 * WONTFIX normal date :tag: <2016-01-02 Sa 0:00>
 EOF
     is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename)], [], 'WONTFIX dates are ignored';
+}
+
+{ # missing weekday
+    my $tmp_with = create_org_file <<'EOF';
+* TODO weekday is optional <2016-01-01 Sa 0:15>
+EOF
+    my($date_with) = App::orgdaemon::find_dates_in_org_file($tmp_with->filename);
+
+    my $tmp_without = create_org_file <<'EOF';
+* TODO weekday is optional <2016-01-01 0:15>
+EOF
+    my($date_without) = App::orgdaemon::find_dates_in_org_file($tmp_without->filename);
+    is $date_without->{epoch}, $date_with->{epoch}, 'weekday is optional';
+}
+
+{ # spaces do not matter
+    my $tmp_with = create_org_file <<'EOF';
+* TODO spaces do not matter <2016-01-01     Sa   0:15>
+EOF
+    my($date_with) = App::orgdaemon::find_dates_in_org_file($tmp_with->filename);
+
+    my $tmp_without = create_org_file <<'EOF';
+* TODO spaces do not matter <2016-01-01 Sa 0:15>
+EOF
+    my($date_without) = App::orgdaemon::find_dates_in_org_file($tmp_without->filename);
+    is $date_without->{epoch}, $date_with->{epoch}, 'spaces do not matter';
 }
 
 { # test early warning --- default early warning is set to 30*60s
@@ -153,6 +185,19 @@ EOF
 }
 
 {
+    my $tmp_en = create_org_file <<"EOF";
+** TODO non-English weekdays <2016-01-07 Thu 0:00>
+EOF
+    my $tmp_hr = create_org_file encode_utf8(<<"EOF");
+** TODO non-English weekdays <2016-01-07 \x{010C}et 0:00>
+EOF
+    my($date_en) = App::orgdaemon::find_dates_in_org_file($tmp_en->filename);
+    my($date_hr) = App::orgdaemon::find_dates_in_org_file($tmp_hr->filename);
+    is $date_hr->{epoch}, $date_en->{epoch};
+    like $date_hr->{date}, qr{^2016-01-07 \x{010C}et};
+}
+
+{
     local $TODO = "does not work --- cannot switch encoding while reading from a scalar?";
     local $SIG{__WARN__} = sub {}; # cease warnings because of this problem
     my $tmp = create_org_file <<'EOF';
@@ -161,6 +206,26 @@ EOF
 EOF
     my($date) = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     like $date->formatted_text, qr{this contains latin1: הצü};
+}
+
+{   # range with double dash
+    my $tmp1 = create_org_file encode_utf8(<<"EOF");
+** TODO range test <2016-01-02 Sa 0:00>--<2016-01-03 So 0:00>
+EOF
+    my @dates1 = App::orgdaemon::find_dates_in_org_file($tmp1->filename);
+    is scalar(@dates1), 1, 'end date not separately parsed';
+ SKIP: {
+	skip "cannot set TZ", 1 if !$can_tzset;
+	is $dates1[0]->{epoch}, 1451689200;
+    }
+
+    # range with single dash
+    my $tmp2 = create_org_file encode_utf8(<<"EOF");
+** TODO range test <2016-01-02 Sa 0:00>-<2016-01-03 So 0:00>
+EOF
+    my @dates2 = App::orgdaemon::find_dates_in_org_file($tmp2->filename);
+    is scalar(@dates2), 1, 'end date not separately parsed';
+    is $dates2[0]->{epoch}, $dates1[0]->{epoch};
 }
 
 { # slow emacs writes
