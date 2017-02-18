@@ -71,6 +71,9 @@ use Tk::PNG;
 
 my $small_font = 'sans 8';
 my $default_early_warning = 30*60;
+my $default_timeless_early_warning = 86400;
+my $include_timeless;
+my $time_fallback = '06:00';
 my $recheck_interval;
 my $debug;
 my $use_emacsclient_eval = 1;
@@ -463,7 +466,7 @@ sub check_for_updates {
 	}
 	delete $open_warning{$org_file};
 	if (!$org_data->{modified} || $org_data->{modified} < $modtime) {
-	    my @new_org_data_dates = find_dates_in_org_file($org_file);
+	    my @new_org_data_dates = find_dates_in_org_file($org_file, include_timeless => $include_timeless, time_fallback => $time_fallback);
 	    my %old_org_data_dates; # id -> date
 	    if ($org_data->{dates}) {
 		for my $date (@{ $org_data->{dates} }) {
@@ -586,7 +589,11 @@ sub find_dates_in_org_file {
 
 	while ($textline =~ m{$org_stamp_time_of_day_regexp}g) {
 	    my($date, $time, $head_warning) = ($1, $2, $3);
-	    if (!defined $time) { $time = $time_fallback }
+	    my $is_timeless;
+	    if (!defined $time) {
+		$time = $time_fallback;
+		$is_timeless = 1;
+	    }
 	    my($Y,$M,$D) = $date =~ m{^(\d{4})-(\d{2})-(\d{2})};
 	    my($h,$m) = $time =~ m{^(\d{1,2}):(\d{2})};
 	    my $epoch = timelocal(0,$m,$h,$D,$M-1,$Y);
@@ -617,7 +624,7 @@ sub find_dates_in_org_file {
 		    $early_warning = _get_head_warning_secs($head_warning);
 		}
 		if (!defined $early_warning) {
-		    $early_warning = $default_early_warning;
+		    $early_warning = $is_timeless ? $default_timeless_early_warning : $default_early_warning;
 		}
 		if ($early_warning > 0) {
 		    $date_params{early_warning_epoch} = $epoch - $early_warning;
@@ -675,6 +682,9 @@ GetOptions(
 	   "d|debug!" => \$debug,
 	   "recheck-interval=i" => \$recheck_interval,
 	   "early-warning=i" => \$default_early_warning,
+	   "early-warning-timeless=i" => \$default_timeless_early_warning,
+	   "include-timeless!" => \$include_timeless,
+	   'time-fallback=s' => \$time_fallback,
 	   "small-font=s" => \$small_font,
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
 	   'emacsclient-cmd=s' => \$emacsclient_fmt_cmd,
@@ -683,9 +693,10 @@ GetOptions(
 	   'move-button!' => \$with_move_button,
 	  )
     or die <<EOF;
-$0 [--debug] [--early-warning=seconds] [--recheck-interval=seconds]
+$0 [--debug] [--early-warning=seconds] [--early-warning-timeless=seconds] [--recheck-interval=seconds]
 \t[--no-emacsclient-eval] [--emacsclient-cmd=...]
 \t[--overview-widget=...] [--move-button]
+\t[--[no-]include-timeless] [--time-fallback HH:MM]
 \torgfile ...
 $0 --version
 EOF
