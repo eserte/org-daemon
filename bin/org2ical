@@ -16,69 +16,104 @@ use strict;
 use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin";
 require "org-daemon";
 use Digest::MD5 'md5_base64';
-use POSIX 'strftime';
-use File::Temp 'tempfile';
-#use Data::ICal;
+use POSIX 'strftime', 'ceil';
+use File::Copy 'cp';
 
 my $todo_file = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
+my $todo_mtime = (stat($todo_file))[9];
+my $out_ics = "/home/eserte/trash/htdocs/TODO.ics";
+if (-e $out_ics) {
+    cp $out_ics, "$out_ics.bak";
+}
 
 my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1);
-#require Data::Dumper; print STDERR "Line " . __LINE__ . ", File: " . __FILE__ . "\n" . Data::Dumper->new([scalar @got],[qw()])->Indent(1)->Useqq(1)->Sortkeys(1)->Terse(1)->Dump; # XXX
-#require Data::Dumper; print STDERR "Line " . __LINE__ . ", File: " . __FILE__ . "\n" . Data::Dumper->new([@got],[qw()])->Indent(1)->Useqq(1)->Sortkeys(1)->Terse(1)->Dump; # XXX
 
-#my $vcal = Data::ICal->new;
-
-for my $todo_date (reverse @todo_dates) {
-#    my $vtodo = Data::ICal::Entry::Todo->new();
-#    $vtodo->add_properties(
-#			   summary   => "go to sleep",
-#			   status    => 'INCOMPLETE',
-#			   # Dat*e*::ICal is not a typo here
-#			   dtstart   => Date::ICal->new( epoch => time )->ical,
-#			  );
-#die "NYI";
-    if ($todo_date->{text} !~ m{:homecomputer:}) {
-	my $uid = md5_base64($todo_date->id) . '@rezic.de';
-	my $dtstart = strftime "%Y%m%dT%H%M%S", gmtime $todo_date->{epoch};
-	my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch};
-	my $dtend   = strftime "%Y%m%dT%H%M%S", gmtime($todo_date->{epoch} + 3600); # use end date if available! is non-existing dtend ok?
-	my $description = $todo_date->formatted_text; # XXX description vs. summary?
-	$description =~ s{\s+:.*}{};
-	$description =~ s{,}{\\,}g;
-	my $vcal = <<"EOF";
+open my $ofh, ">", "$out_ics~" or die $!;
+chmod 0644, "$out_ics~" or die $!;
+binmode $ofh, ':encoding(utf-8)';
+print $ofh <<EOF;
 BEGIN:VCALENDAR
 VERSION:2.0
-METHOD:PUBLISH
-PRODID:-//XXX//NONSGML rezic.de org2ical 0.01//
+CALSCALE:GREGORIAN
+PRODID:-//Slaven Rezic//NONSGML rezic.de org2ical 0.03//EN
+EOF
+
+#BEGIN:VTIMEZONE
+#TZID:Europe/Berlin
+#BEGIN:STANDARD
+#DTSTART:19961027T030000
+#RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+#TZNAME:MEZ
+#TZOFFSETFROM:+0200
+#TZOFFSETTO:+0100
+#END:STANDARD
+#BEGIN:DAYLIGHT
+#DTSTART:19810329T020000
+#RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+#TZNAME:MESZ
+#TZOFFSETFROM:+0100
+#TZOFFSETTO:+0200
+#END:DAYLIGHT
+#END:VTIMEZONE
+
+for my $todo_date (reverse @todo_dates) {
+    if ($todo_date->{text} !~ m{:homecomputer:}) {
+	my $uid = md5_base64($todo_date->id) . '@rezic.de';
+	my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_mtime;
+	my $dtstart = $todo_date->{is_timeless} ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
+	my $dtend;
+	if ($todo_date->{epoch_end}) {
+	    # rfc5545: If such a "VEVENT" (daily reminder) has a "DTEND" property, it MUST be specified as a DATE value also.
+	    $dtend = $todo_date->{end_is_timeless} || $todo_date->{is_timeless} ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->{epoch_end} + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch_end});
+	}
+	my $description = $todo_date->formatted_text; # XXX description vs. summary?
+	my $early_warning_min = ceil(($todo_date->{epoch} - ($todo_date->{early_warning_epoch} || 5*60)) / 60);
+	$description =~ s{\s+:.*}{};
+	$description =~ s{\s+<.*>$}{};
+	$description =~ s{,}{\\,}g;
+	my $vcal = <<"EOF";
 BEGIN:VEVENT
 UID:$uid
-DTSTART;TZID=UTC:$dtstart
-DTEND;TZID=UTC:$dtend
-DESCRIPTION:$description
+$dtstart
+EOF
+	if (defined $dtend) {
+	    $vcal .= $dtend . "\n";
+	}
+	$vcal .= <<"EOF";
+CREATED:$dtstamp
 DTSTAMP:$dtstamp
+LAST-MODIFIED:$dtstamp
 SUMMARY:$description
+TRANSP:OPAQUE
 BEGIN:VALARM
 ACTION:DISPLAY
-DESCRIPTION:$description
-TRIGGER:-PT5M
-UID:ALRM-$uid
+DESCRIPTION:Erinnerung
+TRIGGER:-PT${early_warning_min}M
+UID:ALARM-$uid
 END:VALARM
 END:VEVENT
-END:VCALENDAR
 EOF
-	my($tmpfh,$tmpfile) = tempfile(UNLINK => 1, SUFFIX => '.ics');
-	binmode $tmpfh, ':encoding(utf-8)';
-	print $tmpfh $vcal;
-	#binmode STDOUT, ':encoding(utf-8)'; print $vcal;
-	close $tmpfh or die $!;
-
-	my @cmd = ('calypso', '--import', 'calendar/dav/x/user', $tmpfile);
-	print STDERR "@cmd...\n";
-	system @cmd;
-	if ($? != 0) {
-	    die "Command failed: $?; ics file: " . `cat $tmpfile`;
-	}
+	print $ofh $vcal;
+#	my($tmpfh,$tmpfile) = tempfile(UNLINK => 1, SUFFIX => '.ics');
+#	binmode $tmpfh, ':encoding(utf-8)';
+#	print $tmpfh $vcal;
+#	#binmode STDOUT, ':encoding(utf-8)'; print $vcal;
+#	close $tmpfh or die $!;
+#
+#	my @cmd = ('calypso', '--import', 'calendar/dav/x/user', $tmpfile);
+#	print STDERR "@cmd...\n";
+#	system @cmd;
+#	if ($? != 0) {
+#	    die "Command failed: $?; ics file: " . `cat $tmpfile`;
+#	}
     }
 }
+
+print $ofh <<EOF;
+END:VCALENDAR
+EOF
+
+close $ofh or die $!;
+rename "$out_ics~", $out_ics or die $!;
 
 __END__
