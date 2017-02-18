@@ -1,0 +1,84 @@
+#!/usr/bin/perl -w
+# -*- perl -*-
+
+#
+# Author: Slaven Rezic
+#
+# Copyright (C) 2017 Slaven Rezic. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
+#
+# Mail: slaven@rezic.de
+# WWW:  http://www.rezic.de/eserte/
+#
+
+use strict;
+use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin";
+require "org-daemon";
+use Digest::MD5 'md5_base64';
+use POSIX 'strftime';
+use File::Temp 'tempfile';
+#use Data::ICal;
+
+my $todo_file = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
+
+my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1);
+#require Data::Dumper; print STDERR "Line " . __LINE__ . ", File: " . __FILE__ . "\n" . Data::Dumper->new([scalar @got],[qw()])->Indent(1)->Useqq(1)->Sortkeys(1)->Terse(1)->Dump; # XXX
+#require Data::Dumper; print STDERR "Line " . __LINE__ . ", File: " . __FILE__ . "\n" . Data::Dumper->new([@got],[qw()])->Indent(1)->Useqq(1)->Sortkeys(1)->Terse(1)->Dump; # XXX
+
+#my $vcal = Data::ICal->new;
+
+for my $todo_date (reverse @todo_dates) {
+#    my $vtodo = Data::ICal::Entry::Todo->new();
+#    $vtodo->add_properties(
+#			   summary   => "go to sleep",
+#			   status    => 'INCOMPLETE',
+#			   # Dat*e*::ICal is not a typo here
+#			   dtstart   => Date::ICal->new( epoch => time )->ical,
+#			  );
+#die "NYI";
+    if ($todo_date->{text} !~ m{:homecomputer:}) {
+	my $uid = md5_base64($todo_date->id) . '@rezic.de';
+	my $dtstart = strftime "%Y%m%dT%H%M%S", gmtime $todo_date->{epoch};
+	my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch};
+	my $dtend   = strftime "%Y%m%dT%H%M%S", gmtime($todo_date->{epoch} + 3600); # use end date if available! is non-existing dtend ok?
+	my $description = $todo_date->formatted_text; # XXX description vs. summary?
+	$description =~ s{\s+:.*}{};
+	$description =~ s{,}{\\,}g;
+	my $vcal = <<"EOF";
+BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:PUBLISH
+PRODID:-//XXX//NONSGML rezic.de org2ical 0.01//
+BEGIN:VEVENT
+UID:$uid
+DTSTART;TZID=UTC:$dtstart
+DTEND;TZID=UTC:$dtend
+DESCRIPTION:$description
+DTSTAMP:$dtstamp
+SUMMARY:$description
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:$description
+TRIGGER:-PT5M
+UID:ALRM-$uid
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+EOF
+	my($tmpfh,$tmpfile) = tempfile(UNLINK => 1, SUFFIX => '.ics');
+	binmode $tmpfh, ':encoding(utf-8)';
+	print $tmpfh $vcal;
+	#binmode STDOUT, ':encoding(utf-8)'; print $vcal;
+	close $tmpfh or die $!;
+
+	my @cmd = ('calypso', '--import', 'calendar/dav/x/user', $tmpfile);
+	print STDERR "@cmd...\n";
+	system @cmd;
+	if ($? != 0) {
+	    die "Command failed: $?; ics file: " . `cat $tmpfile`;
+	}
+    }
+}
+
+__END__
