@@ -37,7 +37,7 @@ EOF
     is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename)], [], 'empty file';
 }
 
-my $epoch = timelocal(0,0,0,1,1-1,2016);
+my $epoch = timelocal(0,0,0,1,1-1,2016); # 2016-01-01 00:00:00
 Time::Fake->offset($epoch);
 
 { # date in far past
@@ -47,11 +47,18 @@ EOF
     is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename)], [], 'date in far past';
 }
 
+{ # timeless date in far past
+    my $tmp = create_org_file <<'EOF';
+* TODO normal date :tag: <2013-12-31 Fr>
+EOF
+    is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename, include_timeless => 1)], [], 'timeless date in far past';
+}
+
 { # fake a currently displayed and due date (somewhat complicated)
     my $tmp = create_org_file <<'EOF';
 * TODO normal date :tag: <2015-12-31 Fr 23:59>
 EOF
-    my $date_id = '* TODO normal date :tag: <2015-12-31 Fr 23:59>|2015-12-31 Fr '; # strange id formatting...
+    my $date_id = '* TODO normal date :tag: <2015-12-31 Fr 23:59>|2015-12-31 Fr'; # strange id formatting...
     no warnings 'redefine', 'once';
     local $App::orgdaemon::window_for_date{$date_id} = 'fake window id';
     local *Tk::Exists = sub { $_[0] eq 'fake window id' };
@@ -69,8 +76,38 @@ EOF
     is scalar(@dates), 1;
     is $dates[0]->{epoch}, $epoch + 86400;
     is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa 0:00>';
-    is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa 0:00>|2016-01-02 Sa '; # strange id formatting...
+    is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa 0:00>|2016-01-02 Sa'; # strange id formatting...
     is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa 0:00>';
+    is $dates[0]->date_of_date, "2016-01-02";
+    is $dates[0]->state, 'wait';
+    is $dates[0]->{line}, 1;
+}
+
+{ # a timeless date, neither due nor early warning
+    my $tmp = create_org_file <<'EOF';
+* TODO normal date :tag: <2016-01-02 Sa>
+EOF
+    my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename, include_timeless => 1);
+    is scalar(@dates), 1;
+    is $dates[0]->{epoch}, $epoch + 86400, 'timeless';
+    is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa>';
+    is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa>|2016-01-02 Sa'; # strange id formatting...
+    is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa>';
+    is $dates[0]->date_of_date, "2016-01-02";
+    is $dates[0]->state, 'wait';
+    is $dates[0]->{line}, 1;
+}
+
+{ # a timeless date, neither due nor early warning, with time_fallback set
+    my $tmp = create_org_file <<'EOF';
+* TODO normal date :tag: <2016-01-02 Sa>
+EOF
+    my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename, include_timeless => 1, time_fallback => "08:00");
+    is scalar(@dates), 1;
+    is $dates[0]->{epoch}, $epoch + 86400 + 8*3600, 'timeless with time_fallback';
+    is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa>';
+    is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa>|2016-01-02 Sa'; # strange id formatting...
+    is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa>';
     is $dates[0]->date_of_date, "2016-01-02";
     is $dates[0]->state, 'wait';
     is $dates[0]->{line}, 1;
@@ -226,6 +263,18 @@ EOF
     my @dates2 = App::orgdaemon::find_dates_in_org_file($tmp2->filename);
     is scalar(@dates2), 1, 'end date not separately parsed';
     is $dates2[0]->{epoch}, $dates1[0]->{epoch};
+}
+
+{   # timeless range
+    my $tmp1 = create_org_file encode_utf8(<<"EOF");
+** TODO range test <2016-01-02 Sa>--<2016-01-03 So>
+EOF
+    my @dates1 = App::orgdaemon::find_dates_in_org_file($tmp1->filename, include_timeless => 1);
+    is scalar(@dates1), 1, 'end date not separately parsed, timeless variant';
+ SKIP: {
+	skip "cannot set TZ", 1 if !$can_tzset;
+	is $dates1[0]->{epoch}, 1451689200;
+    }
 }
 
 { # slow emacs writes
