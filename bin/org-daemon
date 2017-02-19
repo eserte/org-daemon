@@ -33,18 +33,30 @@ use Tk::PNG;
 	my($class, %args) = @_;
 	bless {%args}, $class;
     }
-    # accessors
+
+    ## accessors
+    # raw text of the date (complete first line of entry)
     sub text     { $_[0]->{text} }
+    # raw start date (typically YYYY-MM-DD with or without localized weekday)
     sub date     { $_[0]->{date} }
+    # raw start time (typically HH:MM), may be missing for time-less dates (test with !length)
     sub time     { $_[0]->{time} }
+    # raw early (head) warning (something like "-5min")
+    sub early_warning { $_[0]->{early_warning} }
+    # epoch of start date+time
     sub epoch    { $_[0]->{epoch} }
+    # epoch of early (head) warning (typically 30min before date, may be modified using -XXX unit syntax)
     sub early_warning_epoch { $_[0]->{early_warning_epoch} }
-    sub head_warning { $_[0]->{head_warning} }
+    # raw end date (may be missing, test with !length)
     sub date_end { $_[0]->{date_end} }
+    # raw end time (may be missing, test with !length)
     sub time_end { $_[0]->{time_end} }
+    # org file
     sub file     { $_[0]->{file} }
+    # line in org file
     sub line     { $_[0]->{line} }
-    # methods
+
+    ## methods
     sub id {
 	my $self = shift;
 	join '|', $self->{text}, $self->{date};
@@ -619,7 +631,7 @@ sub find_dates_in_org_file {
 	}
 
 	while ($textline =~ m{$org_stamp_time_of_day_regexp}g) {
-	    my($date, $time, $head_warning, $date_end, $time_end) = ($1, $2, $3, $4, $5);
+	    my($date, $time, $early_warning, $date_end, $time_end) = ($1, $2, $3, $4, $5);
 	    my $use_time = defined $time ? $time : $time_fallback;
 	    my($Y,$M,$D) = $date =~ m{^(\d{4})-(\d{2})-(\d{2})};
 	    my($h,$m) = $use_time =~ m{^(\d{1,2}):(\d{2})};
@@ -641,7 +653,7 @@ sub find_dates_in_org_file {
 		my %date_params = (epoch => $epoch,
 				   date  => $date,
 				   time  => $time,
-				   head_warning => $head_warning,
+				   early_warning => $early_warning,
 				   date_end => $date_end,
 				   time_end => $time_end,
 				   text  => $text,
@@ -649,15 +661,15 @@ sub find_dates_in_org_file {
 				   line  => $linenumber,
 				  );
 
-		my $early_warning;
-		if ($head_warning) {
-		    $early_warning = _get_head_warning_secs($head_warning);
+		my $early_warning_secs;
+		if ($early_warning) {
+		    $early_warning_secs = _get_head_warning_secs($early_warning);
 		}
-		if (!defined $early_warning) {
-		    $early_warning = !length $time ? $default_timeless_early_warning : $default_early_warning;
+		if (!defined $early_warning_secs) {
+		    $early_warning_secs = !length $time ? $default_timeless_early_warning : $default_early_warning;
 		}
-		if ($early_warning > 0) {
-		    $date_params{early_warning_epoch} = $epoch - $early_warning;
+		if ($early_warning_secs > 0) {
+		    $date_params{early_warning_epoch} = $epoch - $early_warning_secs;
 		}
 
 		my $date = Emacs::Org::Daemon::Date->new(%date_params);

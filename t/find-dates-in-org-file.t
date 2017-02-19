@@ -72,7 +72,7 @@ EOF
     is $dates[0]->time, '23:59';
     is $dates[0]->time, $dates[0]->{time};
     ok !$dates[0]->start_is_timeless;
-    ok !$dates[0]->head_warning;
+    ok !$dates[0]->early_warning;
     is $dates[0]->file, $tmp->filename;
     is $dates[0]->file, $dates[0]->{file};
     is $dates[0]->line, 1;
@@ -95,7 +95,8 @@ EOF
     is $dates[0]->time, '0:00';
     is $dates[0]->time, $dates[0]->{time};
     ok !$dates[0]->start_is_timeless;
-    ok !$dates[0]->head_warning;
+    ok !$dates[0]->early_warning;
+    is $dates[0]->early_warning_epoch, $epoch + 86400 - 30*60;
     is $dates[0]->state, 'wait';
     is $dates[0]->file, $tmp->filename;
     is $dates[0]->file, $dates[0]->{file};
@@ -191,7 +192,8 @@ EOF
 EOF
     my($date) = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     is $date->state, 'early', 'modified early warning';
-    is $date->head_warning, '-60min';
+    is $date->early_warning, '-60min';
+    is $date->early_warning_epoch, $epoch - 5*60;
 }
 
 { # date with repeater and early warning
@@ -200,7 +202,7 @@ EOF
 EOF
     my($date) = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     is $date->state, 'early', 'modified early warning, ignored repeater';
-    is $date->head_warning, '-60min';
+    is $date->early_warning, '-60min';
 }
 
 { # date not in first line (and also: leap day, and English weekday name)
