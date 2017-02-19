@@ -19,6 +19,7 @@ use Digest::MD5 'md5_base64';
 use Encode 'encode_utf8';
 use POSIX 'strftime', 'ceil';
 use File::Copy 'cp';
+use Time::Local 'timelocal';
 
 my $todo_file = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
 my $todo_mtime = (stat($todo_file))[9];
@@ -27,7 +28,7 @@ if (-e $out_ics) {
     cp $out_ics, "$out_ics.bak";
 }
 
-my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1);
+my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1, time_fallback => '00:00');
 
 open my $ofh, ">", "$out_ics~" or die $!;
 chmod 0644, "$out_ics~" or die $!;
@@ -68,7 +69,13 @@ for my $todo_date (reverse @todo_dates) {
 	    $dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->epoch_end);
 	}
 	my $description = $todo_date->formatted_text; # XXX description vs. summary?
-	my $early_warning_min = ceil(($todo_date->{epoch} - ($todo_date->{early_warning_epoch} || 5*60)) / 60);
+	my $early_warning_min;
+	if (!$todo_date->start_is_timeless || $todo_date->early_warning) {
+	    $early_warning_min = ceil(($todo_date->{epoch} - ($todo_date->{early_warning_epoch} || 5*60)) / 60);
+	} else {
+	    $early_warning_min = ceil((16*3600) / 60);
+	}
+	my $trigger = "TRIGGER:-PT${early_warning_min}M";
 	$description =~ s{\s+:.*}{};
 	$description =~ s{\s+<.*>$}{};
 	$description =~ s{,}{\\,}g;
@@ -86,12 +93,18 @@ DTSTAMP:$dtstamp
 LAST-MODIFIED:$dtstamp
 SUMMARY:$description
 TRANSP:OPAQUE
+EOF
+	if (defined $trigger) {
+	    $vcal .= <<"EOF";
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Erinnerung
-TRIGGER:-PT${early_warning_min}M
+$trigger
 UID:ALARM-$uid
 END:VALARM
+EOF
+}
+	$vcal .= <<"EOF";
 END:VEVENT
 EOF
 	print $ofh $vcal;
