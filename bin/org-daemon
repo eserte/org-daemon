@@ -39,6 +39,7 @@ use Tk::PNG;
     sub time     { $_[0]->{time} }
     sub epoch    { $_[0]->{epoch} }
     sub early_warning_epoch { $_[0]->{early_warning_epoch} }
+    sub head_warning { $_[0]->{head_warning} }
     sub date_end { $_[0]->{date_end} }
     sub time_end { $_[0]->{time_end} }
     sub file     { $_[0]->{file} }
@@ -640,6 +641,7 @@ sub find_dates_in_org_file {
 		my %date_params = (epoch => $epoch,
 				   date  => $date,
 				   time  => $time,
+				   head_warning => $head_warning,
 				   date_end => $date_end,
 				   time_end => $time_end,
 				   text  => $text,
