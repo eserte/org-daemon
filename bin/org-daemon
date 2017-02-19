@@ -33,13 +33,24 @@ use Tk::PNG;
 	my($class, %args) = @_;
 	bless {%args}, $class;
     }
+    # accessors
+    sub text     { $_[0]->{text} }
+    sub date     { $_[0]->{date} }
+    sub time     { $_[0]->{time} }
+    sub epoch    { $_[0]->{epoch} }
+    sub early_warning_epoch { $_[0]->{early_warning_epoch} }
+    sub date_end { $_[0]->{date_end} }
+    sub time_end { $_[0]->{time_end} }
+    sub file     { $_[0]->{file} }
+    sub line     { $_[0]->{line} }
+    # methods
     sub id {
 	my $self = shift;
 	join '|', $self->{text}, $self->{date};
     }
     sub state {
 	my $self = shift;
-	my $now = time;
+	my $now = do { package main; time }; # hack: don't call the method time() in this package, and using CORE::time does not work together with Time::Fake
 	if ($now >= $self->{epoch}) {
 	    'due';
 	} elsif (defined $self->{early_warning_epoch} && $now >= $self->{early_warning_epoch}) {
@@ -66,6 +77,25 @@ use Tk::PNG;
 	my $self = shift;
 	my @l = localtime $self->{epoch};
 	sprintf "%04d-%02d-%02d", $l[5]+1900, $l[4]+1, $l[3];
+    }
+    sub start_is_timeless {
+	my $self = shift;
+	!length $self->{time};
+    }
+    sub end_is_timeless {
+	my $self = shift;
+	!length $self->{time_end};
+    }
+    sub epoch_end {
+	my $self = shift;
+	my($Y,$M,$D) = $self->{date_end} =~ m{^(\d{4})-(\d{2})-(\d{2})};
+	my($h,$m);
+	if ($self->end_is_timeless) {
+	    ($h,$m) = (23,59);
+	} else {
+	    ($h,$m) = $self->{time_end} =~ m{^(\d{1,2}):(\d{2})};
+	}
+	Time::Local::timelocal(0,$m,$h,$D,$M-1,$Y);
     }
 }
 
@@ -535,8 +565,8 @@ sub find_dates_in_org_file {
 	      (?:[ ]+$repeater_qr)?
 	      (?:[ ]+($headwarn_qr))?
 	      >
-	      (--?
-		  <$date_and_wkday_qr$maybe_time_qr>
+	      (?:--?
+		  <($date_and_wkday_qr)$maybe_time_qr>
 	      )?
       }x;
 
@@ -588,16 +618,12 @@ sub find_dates_in_org_file {
 	}
 
 	while ($textline =~ m{$org_stamp_time_of_day_regexp}g) {
-	    my($date, $time, $head_warning) = ($1, $2, $3);
-	    my $is_timeless;
-	    if (!defined $time) {
-		$time = $time_fallback;
-		$is_timeless = 1;
-	    }
+	    my($date, $time, $head_warning, $date_end, $time_end) = ($1, $2, $3, $4, $5);
+	    my $use_time = defined $time ? $time : $time_fallback;
 	    my($Y,$M,$D) = $date =~ m{^(\d{4})-(\d{2})-(\d{2})};
-	    my($h,$m) = $time =~ m{^(\d{1,2}):(\d{2})};
+	    my($h,$m) = $use_time =~ m{^(\d{1,2}):(\d{2})};
 	    my $epoch = timelocal(0,$m,$h,$D,$M-1,$Y);
-	    if ($epoch >= time - 86400) { # we also collect also dates, just in case they are still displayed; also the early warning time is not considered here
+	    if ($epoch >= time - 2*86400) { # we also collect also dates, just in case they are still displayed; also the early warning time is not considered here
 		my $text;
 		if (defined $last_item) {
 		    if ($last_item ne $textline) {
@@ -614,6 +640,8 @@ sub find_dates_in_org_file {
 		my %date_params = (epoch => $epoch,
 				   date  => $date,
 				   time  => $time,
+				   date_end => $date_end,
+				   time_end => $time_end,
 				   text  => $text,
 				   file  => $file,
 				   line  => $linenumber,
@@ -624,7 +652,7 @@ sub find_dates_in_org_file {
 		    $early_warning = _get_head_warning_secs($head_warning);
 		}
 		if (!defined $early_warning) {
-		    $early_warning = $is_timeless ? $default_timeless_early_warning : $default_early_warning;
+		    $early_warning = !length $time ? $default_timeless_early_warning : $default_early_warning;
 		}
 		if ($early_warning > 0) {
 		    $date_params{early_warning_epoch} = $epoch - $early_warning;

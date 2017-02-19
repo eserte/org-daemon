@@ -66,6 +66,16 @@ EOF
     is scalar(@dates), 1;
     is $dates[0]->id, $date_id;
     is $dates[0]->state, 'due', 'date in past, but current display in a window faked...';
+    is $dates[0]->date, '2015-12-31 Fr';
+    is $dates[0]->date, $dates[0]->{date};
+    is $dates[0]->date_of_date, '2015-12-31';
+    is $dates[0]->time, '23:59';
+    is $dates[0]->time, $dates[0]->{time};
+    ok !$dates[0]->start_is_timeless;
+    is $dates[0]->file, $tmp->filename;
+    is $dates[0]->file, $dates[0]->{file};
+    is $dates[0]->line, 1;
+    is $dates[0]->line, $dates[0]->{line};
 }
 
 { # a normal date, neither due nor early warning
@@ -74,13 +84,21 @@ EOF
 EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     is scalar(@dates), 1;
-    is $dates[0]->{epoch}, $epoch + 86400;
-    is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa 0:00>';
+    is $dates[0]->epoch, $epoch + 86400;
+    is $dates[0]->epoch, $dates[0]->{epoch};
+    is $dates[0]->text, '* TODO normal date :tag: <2016-01-02 Sa 0:00>';
+    is $dates[0]->text, $dates[0]->{text};
     is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa 0:00>|2016-01-02 Sa'; # strange id formatting...
     is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa 0:00>';
     is $dates[0]->date_of_date, "2016-01-02";
+    is $dates[0]->time, '0:00';
+    is $dates[0]->time, $dates[0]->{time};
+    ok !$dates[0]->start_is_timeless;
     is $dates[0]->state, 'wait';
-    is $dates[0]->{line}, 1;
+    is $dates[0]->file, $tmp->filename;
+    is $dates[0]->file, $dates[0]->{file};
+    is $dates[0]->line, 1;
+    is $dates[0]->line, $dates[0]->{line};
 }
 
 { # a timeless date, neither due nor early warning
@@ -89,13 +107,15 @@ EOF
 EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename, include_timeless => 1);
     is scalar(@dates), 1;
-    is $dates[0]->{epoch}, $epoch + 86400, 'timeless';
-    is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa>';
+    is $dates[0]->epoch, $epoch + 86400, 'timeless';
+    is $dates[0]->text, '* TODO normal date :tag: <2016-01-02 Sa>';
     is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa>|2016-01-02 Sa'; # strange id formatting...
     is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa>';
     is $dates[0]->date_of_date, "2016-01-02";
+    ok !length $dates[0]->time;
+    ok $dates[0]->start_is_timeless;
     is $dates[0]->state, 'early';
-    is $dates[0]->{line}, 1;
+    is $dates[0]->line, 1;
 }
 
 { # a timeless date, neither due nor early warning, with time_fallback set
@@ -104,13 +124,15 @@ EOF
 EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename, include_timeless => 1, time_fallback => "08:00");
     is scalar(@dates), 1;
-    is $dates[0]->{epoch}, $epoch + 86400 + 8*3600, 'timeless with time_fallback';
-    is $dates[0]->{text}, '* TODO normal date :tag: <2016-01-02 Sa>';
+    is $dates[0]->epoch, $epoch + 86400 + 8*3600, 'timeless with time_fallback';
+    is $dates[0]->text, '* TODO normal date :tag: <2016-01-02 Sa>';
     is $dates[0]->id, '* TODO normal date :tag: <2016-01-02 Sa>|2016-01-02 Sa'; # strange id formatting...
     is $dates[0]->formatted_text, 'normal date :tag: <2016-01-02 Sa>';
     is $dates[0]->date_of_date, "2016-01-02";
+    ok !length $dates[0]->time;
+    ok $dates[0]->start_is_timeless;
     is $dates[0]->state, 'wait';
-    is $dates[0]->{line}, 1;
+    is $dates[0]->line, 1;
 }
 
 { # DONE items are ignored
@@ -137,7 +159,7 @@ EOF
 * TODO weekday is optional <2016-01-01 0:15>
 EOF
     my($date_without) = App::orgdaemon::find_dates_in_org_file($tmp_without->filename);
-    is $date_without->{epoch}, $date_with->{epoch}, 'weekday is optional';
+    is $date_without->epoch, $date_with->epoch, 'weekday is optional';
 }
 
 { # spaces do not matter
@@ -150,7 +172,7 @@ EOF
 * TODO spaces do not matter <2016-01-01 Sa 0:15>
 EOF
     my($date_without) = App::orgdaemon::find_dates_in_org_file($tmp_without->filename);
-    is $date_without->{epoch}, $date_with->{epoch}, 'spaces do not matter';
+    is $date_without->epoch, $date_with->epoch, 'spaces do not matter';
 }
 
 { # test early warning --- default early warning is set to 30*60s
@@ -230,8 +252,9 @@ EOF
 EOF
     my($date_en) = App::orgdaemon::find_dates_in_org_file($tmp_en->filename);
     my($date_hr) = App::orgdaemon::find_dates_in_org_file($tmp_hr->filename);
-    is $date_hr->{epoch}, $date_en->{epoch};
-    like $date_hr->{date}, qr{^2016-01-07 \x{010C}et};
+    is $date_hr->epoch, $date_en->epoch;
+    like $date_hr->date, qr{^2016-01-07 \x{010C}et};
+    is $date_hr->date_of_date, '2016-01-07';
 }
 
 {
@@ -253,8 +276,12 @@ EOF
     is scalar(@dates1), 1, 'end date not separately parsed';
  SKIP: {
 	skip "cannot set TZ", 1 if !$can_tzset;
-	is $dates1[0]->{epoch}, 1451689200;
+	is $dates1[0]->epoch, 1451689200;
     }
+    is $dates1[0]->date, '2016-01-02 Sa';
+    is $dates1[0]->time, '0:00';
+    is $dates1[0]->date_end, '2016-01-03 So';
+    is $dates1[0]->time_end, '0:00';
 
     # range with single dash
     my $tmp2 = create_org_file encode_utf8(<<"EOF");
@@ -262,7 +289,11 @@ EOF
 EOF
     my @dates2 = App::orgdaemon::find_dates_in_org_file($tmp2->filename);
     is scalar(@dates2), 1, 'end date not separately parsed';
-    is $dates2[0]->{epoch}, $dates1[0]->{epoch};
+    is $dates2[0]->epoch, $dates1[0]->epoch;
+    is $dates2[0]->date, '2016-01-02 Sa';
+    is $dates2[0]->time, '0:00';
+    is $dates2[0]->date_end, '2016-01-03 So';
+    is $dates2[0]->time_end, '0:00';
 }
 
 {   # timeless range
@@ -273,8 +304,12 @@ EOF
     is scalar(@dates1), 1, 'end date not separately parsed, timeless variant';
  SKIP: {
 	skip "cannot set TZ", 1 if !$can_tzset;
-	is $dates1[0]->{epoch}, 1451689200;
+	is $dates1[0]->epoch, 1451689200;
     }
+    is $dates1[0]->date, '2016-01-02 Sa';
+    ok !length $dates1[0]->time;
+    is $dates1[0]->date_end, '2016-01-03 So';
+    ok !length $dates1[0]->time_end;
 }
 
 { # slow emacs writes
@@ -296,7 +331,7 @@ EOF
     } else {
 	diag 'No warnings seen. Slow fork?';
     }
-    like $date->{text}, qr{slow writing};
+    like $date->text, qr{slow writing};
 }
 
 { # non-existent file (run rather last, as it's waiting for 1s)
