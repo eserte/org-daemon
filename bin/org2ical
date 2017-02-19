@@ -16,6 +16,7 @@ use strict;
 use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin";
 require "org-daemon";
 use Digest::MD5 'md5_base64';
+use Encode 'encode_utf8';
 use POSIX 'strftime', 'ceil';
 use File::Copy 'cp';
 
@@ -58,7 +59,7 @@ EOF
 
 for my $todo_date (reverse @todo_dates) {
     if ($todo_date->{text} !~ m{:homecomputer:}) {
-	my $uid = md5_base64($todo_date->id) . '@rezic.de';
+	my $uid = md5_base64(encode_utf8($todo_date->id)) . '@rezic.de';
 	my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_mtime;
 	my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
 	my $dtend;
