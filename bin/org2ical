@@ -13,22 +13,31 @@
 #
 
 use strict;
-use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin";
+use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin", "$ENV{HOME}/src/CPAN/App-orgdaemon/bin";
 require "org-daemon";
 use Digest::MD5 'md5_base64';
 use Encode 'encode_utf8';
 use POSIX 'strftime', 'ceil';
 use File::Copy 'cp';
 use Time::Local 'timelocal';
+use Getopt::Long;
 
-my $todo_file = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
-my $todo_mtime = (stat($todo_file))[9];
+my @todo_files;
 my $out_ics = "/home/eserte/trash/htdocs/TODO.ics";
+
+GetOptions(
+    'todo-file=s@' => \@todo_files,
+    "ics-file=s"   => \$out_ics,
+)
+    or die "usage: $0 [--todo-file path ...] [--ics-file path]\n";
+
+if (!@todo_files) {
+    @todo_files = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
+}
+
 if (-e $out_ics) {
     cp $out_ics, "$out_ics.bak";
 }
-
-my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1, time_fallback => '00:00');
 
 open my $ofh, ">", "$out_ics~" or die $!;
 chmod 0644, "$out_ics~" or die $!;
@@ -58,44 +67,47 @@ EOF
 #END:DAYLIGHT
 #END:VTIMEZONE
 
-for my $todo_date (reverse @todo_dates) {
-    if ($todo_date->{text} !~ m{:homecomputer:}) {
-	my $uid = md5_base64(encode_utf8($todo_date->id)) . '@rezic.de';
-	my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_mtime;
-	my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
-	my $dtend;
-	if ($todo_date->date_end) {
-	    # rfc5545: If such a "VEVENT" (daily reminder) has a "DTEND" property, it MUST be specified as a DATE value also.
-	    $dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->epoch_end);
-	}
-	my $description = $todo_date->formatted_text; # XXX description vs. summary?
-	my $early_warning_min;
-	if (!$todo_date->start_is_timeless || $todo_date->early_warning) {
-	    $early_warning_min = ceil(($todo_date->{epoch} - ($todo_date->{early_warning_epoch} || 5*60)) / 60);
-	} else {
-	    $early_warning_min = ceil((16*3600) / 60);
-	}
-	my $trigger = "TRIGGER:-PT${early_warning_min}M";
-	$description =~ s{\s+:.*}{};
-	$description =~ s{\s+<.*>$}{};
-	$description =~ s{,}{\\,}g;
-	my $vcal = <<"EOF";
+for my $todo_file (@todo_files) {
+    my $todo_mtime = (stat($todo_file))[9];
+    my @todo_dates = App::orgdaemon::find_dates_in_org_file($todo_file, include_timeless => 1, time_fallback => '00:00');
+    for my $todo_date (reverse @todo_dates) {
+	if ($todo_date->{text} !~ m{:(homecomputer|workcomputer|ignoreics):}) {
+	    my $uid = md5_base64(encode_utf8($todo_date->id)) . '@rezic.de';
+	    my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_mtime;
+	    my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
+	    my $dtend;
+	    if ($todo_date->date_end) {
+		# rfc5545: If such a "VEVENT" (daily reminder) has a "DTEND" property, it MUST be specified as a DATE value also.
+		$dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->epoch_end);
+	    }
+	    my $description = $todo_date->formatted_text; # XXX description vs. summary?
+	    my $early_warning_min;
+	    if (!$todo_date->start_is_timeless || $todo_date->early_warning) {
+		$early_warning_min = ceil(($todo_date->{epoch} - ($todo_date->{early_warning_epoch} || 5*60)) / 60);
+	    } else {
+		$early_warning_min = ceil((16*3600) / 60);
+	    }
+	    my $trigger = "TRIGGER:-PT${early_warning_min}M";
+	    $description =~ s{\s+:.*}{};
+	    $description =~ s{\s+<.*>$}{};
+	    $description =~ s{,}{\\,}g;
+	    my $vcal = <<"EOF";
 BEGIN:VEVENT
 UID:$uid
 $dtstart
 EOF
-	if (defined $dtend) {
-	    $vcal .= $dtend . "\n";
-	}
-	$vcal .= <<"EOF";
+	    if (defined $dtend) {
+		$vcal .= $dtend . "\n";
+	    }
+	    $vcal .= <<"EOF";
 CREATED:$dtstamp
 DTSTAMP:$dtstamp
 LAST-MODIFIED:$dtstamp
 SUMMARY:$description
 TRANSP:OPAQUE
 EOF
-	if (defined $trigger) {
-	    $vcal .= <<"EOF";
+	    if (defined $trigger) {
+		$vcal .= <<"EOF";
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Erinnerung
@@ -103,11 +115,11 @@ $trigger
 UID:ALARM-$uid
 END:VALARM
 EOF
-}
-	$vcal .= <<"EOF";
+	    }
+	    $vcal .= <<"EOF";
 END:VEVENT
 EOF
-	print $ofh $vcal;
+	    print $ofh $vcal;
 #	my($tmpfh,$tmpfile) = tempfile(UNLINK => 1, SUFFIX => '.ics');
 #	binmode $tmpfh, ':encoding(utf-8)';
 #	print $tmpfh $vcal;
@@ -120,6 +132,7 @@ EOF
 #	if ($? != 0) {
 #	    die "Command failed: $?; ics file: " . `cat $tmpfile`;
 #	}
+	}
     }
 }
 
@@ -131,7 +144,7 @@ close $ofh or die $!;
 if (-r $out_ics) {
     require File::Compare;
     if (File::Compare::compare($out_ics, "$out_ics~") == 0) {
-	warn ".ics file dies not change\n";
+	warn ".ics file did not change\n";
 	exit 0;
     } else {
 	system 'diff', '-u', $out_ics, "$out_ics~";
