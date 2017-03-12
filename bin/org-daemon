@@ -422,9 +422,18 @@ sub check_for_alarms {
 				   )->pack(qw(-side left));
 	    my $mv_b;
 	    if ($with_move_button) {
+		my($right, $left) = ("\x{2192}", "\x{2190}");
 		$mv_b = $t->Button(
-				   -text => "\x{2192}",
-				   -command => sub { $t->MoveToplevelWindow($t->screenwidth-60, $t->y) },
+				   -text => $right,
+				   -command => sub {
+				       if ($mv_b->cget(-text) eq $left) {
+					   $t->MoveToplevelWindow(10, $t->y);
+					   $mv_b->configure(-text => $right);
+				       } else {
+					   $t->MoveToplevelWindow($t->screenwidth-60, $t->y);
+					   $mv_b->configure(-text => $left);
+				       }
+				   },
 				   @button_opts,
 				  )->pack(qw(-side left));
 	    }
