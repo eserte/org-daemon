@@ -35,8 +35,43 @@ if (!@todo_files) {
     @todo_files = "/mnt/cvrsnica/home/e/eserte/doc/misc/TODO";
 }
 
+my %old_events;
 if (-e $out_ics) {
     cp $out_ics, "$out_ics.bak";
+
+    open my $fh, $out_ics or die "Can't open $out_ics: $!";
+    my $current_event;
+    my $current_uid;
+    my $in_event;
+    my $in_alarm;
+    while(<$fh>) {
+	if (/^BEGIN:VEVENT$/) {
+	    $current_event = $_;
+	    $in_event = 1;
+	} elsif (/^END:VEVENT$/) {
+	    $current_event .= $_;
+	    if (!$current_uid) {
+		warn "Strange: VEVENT without UID, ignoring...";
+	    } else {
+		$old_events{$current_uid} = $current_event;
+	    }
+	    undef $current_event;
+	    undef $current_uid;
+	    $in_event = 0;
+	} elsif ($in_event) {
+	    if (/^BEGIN:VALARM$/) {
+		$in_alarm = 1;
+	    } elsif (/^END:VALARM$/) {
+		$in_alarm = 0;
+	    } elsif (!$in_alarm && /^UID:(.*)$/) {
+		if (defined $current_uid) {
+		    warn "Strange: multiple UIDs defined, choosing later one...";
+		}
+		$current_uid = $1;
+	    }
+	    $current_event .= $_;
+	}
+    }
 }
 
 open my $ofh, ">", "$out_ics~" or die $!;
@@ -90,6 +125,7 @@ for my $todo_file (@todo_files) {
 	    my $trigger = "TRIGGER:-PT${early_warning_min}M";
 	    $description =~ s{\s+:.*}{};
 	    $description =~ s{\s+<.*>$}{};
+	    $description =~ s{\s*SCHEDULED:\s*}{ };
 	    $description =~ s{,}{\\,}g;
 	    my $vcal = <<"EOF";
 BEGIN:VEVENT
@@ -119,6 +155,9 @@ EOF
 	    $vcal .= <<"EOF";
 END:VEVENT
 EOF
+	    if (exists $old_events{$uid}) {
+		$vcal = get_old_or_new($vcal, $old_events{$uid});
+	    }
 	    print $ofh $vcal;
 #	my($tmpfh,$tmpfile) = tempfile(UNLINK => 1, SUFFIX => '.ics');
 #	binmode $tmpfh, ':encoding(utf-8)';
@@ -151,5 +190,27 @@ if (-r $out_ics) {
     }
 }
 rename "$out_ics~", $out_ics or die $!;
+
+sub get_old_or_new {
+    my($new_vcal, $old_vcal) = @_;
+    my($new_vcal_cmp, $old_vcal_cmp);
+    for my $def (
+	      [$new_vcal, \$new_vcal_cmp],
+	      [$old_vcal, \$old_vcal_cmp],
+	     ) {
+	my($src, $destref) = @$def;
+	for my $l (split /\n/, $src) {
+	    if ($l !~ m{^(CREATED|DTSTAMP|LAST-MODIFIED):}) {
+		$$destref .= $l;
+		$$destref .= "\n";
+	    }
+	}
+    }
+    if ($new_vcal_cmp eq $old_vcal_cmp) {
+	$old_vcal;
+    } else {
+	$new_vcal;
+    }
+}
 
 __END__
