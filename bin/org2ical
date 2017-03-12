@@ -91,11 +91,13 @@ for my $todo_file (@todo_files) {
 	if ($todo_date->{text} !~ m{:(homecomputer|workcomputer|ignoreics):}) { # XXX tag list to ignore should be only configurable
 	    my $uid = md5_base64(encode_utf8($todo_date->id)) . '@rezic.de';
 	    my $dtstamp = strftime "%Y%m%dT%H%M%SZ", gmtime $todo_mtime;
-	    my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
+	    #my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%SZ", gmtime $todo_date->{epoch});
+	    my $dtstart = $todo_date->start_is_timeless ? strftime("DTSTART;VALUE=DATE:%Y%m%d", localtime $todo_date->{epoch}) : strftime("DTSTART:%Y%m%dT%H%M%S", localtime $todo_date->{epoch});
 	    my $dtend;
 	    if ($todo_date->date_end) {
 		# rfc5545: If such a "VEVENT" (daily reminder) has a "DTEND" property, it MUST be specified as a DATE value also.
-		$dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->epoch_end);
+		#$dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%SZ", gmtime $todo_date->epoch_end);
+		$dtend = $todo_date->end_is_timeless || $todo_date->start_is_timeless ? strftime("DTEND;VALUE=DATE:%Y%m%d", localtime($todo_date->epoch_end + 86400)) : strftime("DTEND:%Y%m%dT%H%M%S", localtime $todo_date->epoch_end);
 	    }
 	    my $description = $todo_date->formatted_text; # XXX description vs. summary?
 	    my $early_warning_min;
