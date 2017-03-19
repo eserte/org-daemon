@@ -1,5 +1,11 @@
 Revision history for org-daemon.
 
+1.03	2017-03-19
+	- support for timeless dates (new options:
+	  --early-warning-timeless, --include-timeless, --time-fallback)
+	- move button: toggles between right and left arrow
+	- more tests
+
 1.02	2016-06-13
 	- new option --emacsclient-cmd
 	- new option --move-button
