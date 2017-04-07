@@ -668,6 +668,7 @@ sub find_dates_in_org_file {
 				   text  => $text,
 				   file  => $file,
 				   line  => $linenumber,
+				   seek  => tell($fh), # actually pointing to a position within the item, not the beginning
 				  );
 
 		my $early_warning_secs;
