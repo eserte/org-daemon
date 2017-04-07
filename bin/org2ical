@@ -16,9 +16,11 @@ use strict;
 use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin", "$ENV{HOME}/src/CPAN/App-orgdaemon/bin";
 require "org-daemon";
 use Digest::MD5 'md5_base64';
-use Encode 'encode_utf8';
+use Encode 'encode_utf8', 'decode_utf8';
 use POSIX 'strftime', 'ceil';
+use Fcntl 'SEEK_SET';
 use File::Copy 'cp';
+use File::ReadBackwards;
 use Time::Local 'timelocal';
 use Getopt::Long;
 
@@ -111,6 +113,36 @@ for my $todo_file (@todo_files) {
 	    $description =~ s{\s+<.*>$}{};
 	    $description =~ s{\s*SCHEDULED:\s*}{ };
 	    $description =~ s{,}{\\,}g;
+
+	    # The comment is currently the complete item, except for really boring lines
+	    # (scheduled date, former state changes, properties...). It feels somewhat
+	    # hacky, see XXXs below.
+	    my $comment;
+	    if ($todo_date->{seek} && (my $todo_fh = File::ReadBackwards->new($todo_file))) {
+		$todo_fh->{seek_pos} = $todo_date->{seek}; # XXX using undocumented stuff!!!
+		while(defined(my $line = $todo_fh->readline)) {
+		    last if $line =~ /^\*/;
+		}
+		my $forward_fh = $todo_fh->get_handle;
+		scalar <$forward_fh>; # overread title line; already in the summary of the vevent
+		while(defined(my $line = decode_utf8(scalar <$forward_fh>))) { # XXX should not assume utf-8 as org file encoding
+		    last if $line =~ /^\*/;
+		    if ($line !~ m{^(
+				       \s+SCHEDULED:\s+<\d+.*>
+				   |   \s+-\s+State\s+"DONE"\s+from\s+"TODO"\s+\[.*\] # XXX other state changes are possible
+				   |   \s+:(PROPERTIES|LAST_REPEAT|END): # XXX there are more possible properties
+				   |   \s+\[cropped\]$ # XXX private convention
+				   )}x) {
+			$comment .= $line;
+		    }
+		}
+	    }
+	    if ($comment) {
+		$comment =~ s{^\s+}{}gm;
+		$comment =~ s{\n}{\\n}g;
+		$comment =~ s{([,;])}{\\$1}g;
+	    }
+		
 	    my $vcal = <<"EOF";
 BEGIN:VEVENT
 UID:$uid
@@ -126,6 +158,11 @@ LAST-MODIFIED:$dtstamp
 SUMMARY:$description
 TRANSP:OPAQUE
 EOF
+	    if ($comment) {
+		$vcal .= <<"EOF";
+DESCRIPTION:$comment
+EOF
+	    }
 	    if (defined $trigger) {
 		$vcal .= <<"EOF";
 BEGIN:VALARM
