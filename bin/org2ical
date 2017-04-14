@@ -120,6 +120,9 @@ for my $todo_file (@todo_files) {
 	    my $comment;
 	    if ($todo_date->{seek} && (my $todo_fh = File::ReadBackwards->new($todo_file))) {
 		$todo_fh->{seek_pos} = $todo_date->{seek}; # XXX using undocumented stuff!!!
+		if ($todo_fh->{read_size} > $todo_fh->{seek_pos}) { # XXX and that's what I get for using undocumented stuff (otherwise an endless loop happens if seek_pos < 8192)
+		    $todo_fh->{read_size} = $todo_fh->{seek_pos};
+		}
 		while(defined(my $line = $todo_fh->readline)) {
 		    last if $line =~ /^\*/;
 		}
