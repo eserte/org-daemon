@@ -8,6 +8,7 @@
 use strict;
 use FindBin;
 use Encode qw(encode_utf8);
+use Fcntl 'SEEK_SET';
 use File::Temp qw(tempdir);
 use Test::More;
 use Time::Local qw(timelocal);
@@ -26,6 +27,7 @@ if ($can_tzset) {
 plan 'no_plan';
 
 sub create_org_file ($);
+sub test_seek ($$$);
 
 require "$FindBin::RealBin/../bin/org-daemon";
 pass 'required org-daemon';
@@ -77,6 +79,7 @@ EOF
     is $dates[0]->file, $dates[0]->{file};
     is $dates[0]->line, 1;
     is $dates[0]->line, $dates[0]->{line};
+    test_seek $tmp, $dates[0]->{seek}, '* TODO normal date :tag: <2015-12-31 Fr 23:59>';
 }
 
 { # a normal date, neither due nor early warning
@@ -218,8 +221,10 @@ EOF
     is scalar(@dates), 2;
     is $dates[0]->date_of_date, '2016-02-29';
     is $dates[0]->formatted_text, 'normal date :tag:   Now comes the date: <2016-02-29 Mon 00:00>';
+    test_seek $tmp, $dates[0]->{seek}, '* TODO normal date :tag:';
     is $dates[1]->date_of_date, '2016-03-01';
     is $dates[1]->formatted_text, 'another date :tagfoo:tagbar:   <2016-03-01 Tue 23:59>';
+    test_seek $tmp, $dates[1]->{seek}, '* WAITING another date :tagfoo:tagbar:';
 }
 
 { # multi line item
@@ -237,8 +242,10 @@ EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     like $dates[0]->formatted_text, qr{multi-line item};
     is   $dates[0]->date_of_date, '2016-01-02';
+    test_seek $tmp, $dates[0]->{seek}, '** TODO multi-line item <2016-01-02 Sa 0:00>';
     like $dates[1]->formatted_text, qr{2nd item};
     is   $dates[1]->date_of_date, '2016-01-03';
+    test_seek $tmp, $dates[1]->{seek}, '** TODO 2nd item  <2016-01-03 So 0:00>';
 }
 
 {
@@ -247,6 +254,7 @@ EOF
 EOF
     my($date) = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     like $date->formatted_text, qr{this contains utf-8: \x{20ac}};
+    test_seek $tmp, $date->{seek}, encode_utf8("** TODO this contains utf-8: \x{20ac} <2016-01-02 Sa 0:00>");
 }
 
 {
@@ -364,6 +372,16 @@ sub create_org_file ($) {
     $tmp->print($contents);
     $tmp->close;
     $tmp;
+}
+
+# expected_line should be octets
+sub test_seek ($$$) {
+    my($tmp, $seek_pos, $expected_line) = @_;
+    open my $fh, "$tmp" or die "Can't open $tmp: $!";
+    seek $fh, $seek_pos, SEEK_SET or die "Can't seek: $!";
+    chomp(my $got_line = <$fh>);
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    is $got_line, $expected_line;
 }
 
 __END__

@@ -624,6 +624,7 @@ sub find_dates_in_org_file {
 
     my $linenumber = 0;
     my $last_item;
+    my $last_seek;
     open $fh, "<", \$buf
 	or die "Cannot open scalar, should not happen!";
     binmode $fh, ':encoding(utf-8)'; # a modern default
@@ -637,6 +638,7 @@ sub find_dates_in_org_file {
 
 	if ($textline =~ m{^\*}) { # remember the last item
 	    $last_item = $textline;
+	    $last_seek = tell($fh) - bytes::length($textline) - bytes::length($/);
 	}
 
 	while ($textline =~ m{$org_stamp_time_of_day_regexp}g) {
@@ -668,7 +670,7 @@ sub find_dates_in_org_file {
 				   text  => $text,
 				   file  => $file,
 				   line  => $linenumber,
-				   seek  => tell($fh), # actually pointing to a position within the item, not the beginning
+				   seek  => $last_seek,
 				  );
 
 		my $early_warning_secs;
