@@ -17,10 +17,9 @@ use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/esert
 require "org-daemon";
 use Digest::MD5 'md5_base64';
 use Encode 'encode_utf8', 'decode_utf8';
-use POSIX 'strftime', 'ceil';
 use Fcntl 'SEEK_SET';
+use POSIX 'strftime', 'ceil';
 use File::Copy 'cp';
-use File::ReadBackwards;
 use Time::Local 'timelocal';
 use Getopt::Long;
 
@@ -118,15 +117,8 @@ for my $todo_file (@todo_files) {
 	    # (scheduled date, former state changes, properties...). It feels somewhat
 	    # hacky, see XXXs below.
 	    my $comment;
-	    if ($todo_date->{seek} && (my $todo_fh = File::ReadBackwards->new($todo_file))) {
-		$todo_fh->{seek_pos} = $todo_date->{seek}; # XXX using undocumented stuff!!!
-		if ($todo_fh->{read_size} > $todo_fh->{seek_pos}) { # XXX and that's what I get for using undocumented stuff (otherwise an endless loop happens if seek_pos < 8192)
-		    $todo_fh->{read_size} = $todo_fh->{seek_pos};
-		}
-		while(defined(my $line = $todo_fh->readline)) {
-		    last if $line =~ /^\*/;
-		}
-		my $forward_fh = $todo_fh->get_handle;
+	    if ($todo_date->{seek} && open my $forward_fh, $todo_file) {
+		seek $forward_fh, $todo_date->{seek}, SEEK_SET or die "seek failed: $!";
 		scalar <$forward_fh>; # overread title line; already in the summary of the vevent
 		while(defined(my $line = decode_utf8(scalar <$forward_fh>))) { # XXX should not assume utf-8 as org file encoding
 		    last if $line =~ /^\*/;
