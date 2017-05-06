@@ -1,5 +1,8 @@
 Revision history for org-daemon.
 
+1.04	2017-05-06
+	- find_dates_in_org_file provides seek position
+
 1.03	2017-03-19
 	- support for timeless dates (new options:
 	  --early-warning-timeless, --include-timeless, --time-fallback)
