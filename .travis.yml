@@ -1,4 +1,5 @@
 language: perl
+dist: trusty
 matrix:
   include:
     - perl: "5.22"
@@ -13,6 +14,8 @@ matrix:
     - perl: "5.14"
     - perl: "5.12"
     - perl: "5.10"
+    - perl: "5.14"
+      dist: precise
 
 before_install:
   - '[ "$WITH_TIME_FAKE" = 1 ] && cpanm --quiet --notest Time::Fake || true'
