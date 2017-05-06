@@ -1,26 +1,36 @@
 language: perl
 dist: trusty
+sudo: false
 matrix:
   include:
+    # Actually the perl here does not matter
+    - perl: "5.14"
+      env: USE_SYSTEM_PERL=1
+      dist: precise
+      sudo: true
+    # Actually the perl here does not matter
+    - perl: "5.18"
+      env: USE_SYSTEM_PERL=1
+      sudo: true
     - perl: "5.22"
       env: WITH_TIME_FAKE=1
     - perl: "5.8"
       env: WITH_TIME_FAKE=1
     - perl: "5.20"
     - perl: "5.18"
-    - perl: "5.18"
       env: WITH_TIME_FAKE=1
     - perl: "5.16"
     - perl: "5.14"
     - perl: "5.12"
     - perl: "5.10"
-    - perl: "5.14"
-      dist: precise
 
 before_install:
-  - '[ "$WITH_TIME_FAKE" = 1 ] && cpanm --quiet --notest Time::Fake || true'
+  - if [ "$USE_SYSTEM_PERL" = 1 ]; then perlbrew off; sudo apt-get install -qq perl-tk libipc-run-perl; fi
+  - if [ "$WITH_TIME_FAKE" = 1 ]; then cpanm --quiet --notest Time::Fake; fi
+
+install:
+  - if [ "$USE_SYSTEM_PERL" = "" ]; then cpanm --quiet --installdeps --notest .; fi
 
 branches:
   except:
     - /appveyor/
-sudo: false
