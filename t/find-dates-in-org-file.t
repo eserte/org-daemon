@@ -64,6 +64,7 @@ EOF
     no warnings 'redefine', 'once';
     local $App::orgdaemon::window_for_date{$date_id} = 'fake window id';
     local *Tk::Exists = sub { $_[0] eq 'fake window id' };
+
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     is scalar(@dates), 1;
     is $dates[0]->id, $date_id;
@@ -79,7 +80,11 @@ EOF
     is $dates[0]->file, $dates[0]->{file};
     is $dates[0]->line, 1;
     is $dates[0]->line, $dates[0]->{line};
+    is_deeply [$dates[0]->tags], ['tag'], 'parsed tag';
     test_seek $tmp, $dates[0]->{seek}, '* TODO normal date :tag: <2015-12-31 Fr 23:59>';
+
+    is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename, ignore_tags => ['tag'])], [], 'matching ignore_tag';
+    is_deeply [App::orgdaemon::find_dates_in_org_file($tmp->filename, ignore_tags => ['something_else'])], \@dates, 'non-matching ignore_tag';
 }
 
 { # a normal date, neither due nor early warning
@@ -105,6 +110,7 @@ EOF
     is $dates[0]->file, $dates[0]->{file};
     is $dates[0]->line, 1;
     is $dates[0]->line, $dates[0]->{line};
+    is_deeply [$dates[0]->tags], ['tag'], 'parsed tag';
 }
 
 { # a timeless date, neither due nor early warning
@@ -122,6 +128,7 @@ EOF
     ok $dates[0]->start_is_timeless;
     is $dates[0]->state, 'early';
     is $dates[0]->line, 1;
+    is_deeply [$dates[0]->tags], ['tag'], 'parsed tag';
 }
 
 { # a timeless date, neither due nor early warning, with time_fallback set
@@ -139,6 +146,7 @@ EOF
     ok $dates[0]->start_is_timeless;
     is $dates[0]->state, 'wait';
     is $dates[0]->line, 1;
+    is_deeply [$dates[0]->tags], ['tag'], 'parsed tag';
 }
 
 { # DONE items are ignored
@@ -221,9 +229,11 @@ EOF
     is scalar(@dates), 2;
     is $dates[0]->date_of_date, '2016-02-29';
     is $dates[0]->formatted_text, 'normal date :tag:   Now comes the date: <2016-02-29 Mon 00:00>';
+    is_deeply [$dates[0]->tags], ['tag'], 'parsed tag';
     test_seek $tmp, $dates[0]->{seek}, '* TODO normal date :tag:';
     is $dates[1]->date_of_date, '2016-03-01';
     is $dates[1]->formatted_text, 'another date :tagfoo:tagbar:   <2016-03-01 Tue 23:59>';
+    is_deeply [$dates[1]->tags], ['tagfoo','tagbar'], 'parsed multiple tags';
     test_seek $tmp, $dates[1]->{seek}, '* WAITING another date :tagfoo:tagbar:';
 }
 
@@ -242,10 +252,12 @@ EOF
     my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
     like $dates[0]->formatted_text, qr{multi-line item};
     is   $dates[0]->date_of_date, '2016-01-02';
+    is_deeply [$dates[0]->tags], [], 'tag-less item';
     test_seek $tmp, $dates[0]->{seek}, '** TODO multi-line item <2016-01-02 Sa 0:00>';
     like $dates[1]->formatted_text, qr{2nd item};
     is   $dates[1]->date_of_date, '2016-01-03';
     test_seek $tmp, $dates[1]->{seek}, '** TODO 2nd item  <2016-01-03 So 0:00>';
+    is_deeply [$dates[1]->tags], [], 'another tag-less item';
 }
 
 {

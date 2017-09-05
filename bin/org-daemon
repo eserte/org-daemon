@@ -18,7 +18,7 @@ package # hide from PAUSE indexer
 use strict;
 use 5.008; # scalar open
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 use Getopt::Long;
 use List::Util qw(max);
@@ -55,6 +55,8 @@ use Tk::PNG;
     sub file     { $_[0]->{file} }
     # line in org file
     sub line     { $_[0]->{line} }
+    # tags
+    sub tags     { @{ $_[0]->{tags} || [] } }
 
     ## methods
     sub id {
@@ -123,6 +125,7 @@ my $use_emacsclient_eval = 1;
 my $emacsclient_fmt_cmd;
 my $show_version;
 my $overview_widget = 'hlist';
+my @ignore_tags;
 
 my $mw;
 my $lb;
@@ -518,7 +521,7 @@ sub check_for_updates {
 	}
 	delete $open_warning{$org_file};
 	if (!$org_data->{modified} || $org_data->{modified} < $modtime) {
-	    my @new_org_data_dates = find_dates_in_org_file($org_file, include_timeless => $include_timeless, time_fallback => $time_fallback);
+	    my @new_org_data_dates = find_dates_in_org_file($org_file, include_timeless => $include_timeless, time_fallback => $time_fallback, ignore_tags => \@ignore_tags);
 	    my %old_org_data_dates; # id -> date
 	    if ($org_data->{dates}) {
 		for my $date (@{ $org_data->{dates} }) {
@@ -548,6 +551,7 @@ sub find_dates_in_org_file {
     my($file, %opts) = @_;
     my $include_timeless = delete $opts{include_timeless};
     my $time_fallback = delete $opts{time_fallback} || '00:00';
+    my %ignore_tags = map {($_,1)} @{ delete $opts{ignore_tags} || [] };
     die "Unhandled options: " . join(" ", %opts) if %opts;
 
     my @dates;
@@ -661,6 +665,18 @@ sub find_dates_in_org_file {
 		if ($text =~ m{^\*+\s+(?:DONE|WONTFIX)\b}) {
 		    next; # ignore DONE and WONTFIX items
 		}
+		my @tags;
+		if ($text =~ m{\s:(\S+):(\s|$)}) {
+		    @tags = split /:/, $1;
+		    my $next;
+		    for (@tags) {
+			if ($ignore_tags{$_}) {
+			    $next = 1;
+			    last;
+			}
+		    }
+		    next if $next;
+		}
 		my %date_params = (epoch => $epoch,
 				   date  => $date,
 				   time  => $time,
@@ -671,6 +687,7 @@ sub find_dates_in_org_file {
 				   file  => $file,
 				   line  => $linenumber,
 				   seek  => $last_seek,
+				   tags  => \@tags,
 				  );
 
 		my $early_warning_secs;
@@ -743,6 +760,7 @@ GetOptions(
 	   'emacsclient-eval!' => \$use_emacsclient_eval,
 	   'emacsclient-cmd=s' => \$emacsclient_fmt_cmd,
 	   'overview-widget=s' => \$overview_widget,
+	   'ignore-tag=s@' => \@ignore_tags,
 	   'v|version' => \$show_version,
 	   'move-button!' => \$with_move_button,
 	  )
@@ -751,6 +769,7 @@ $0 [--debug] [--early-warning=seconds] [--early-warning-timeless=seconds] [--rec
 \t[--no-emacsclient-eval] [--emacsclient-cmd=...]
 \t[--overview-widget=...] [--move-button]
 \t[--[no-]include-timeless] [--time-fallback HH:MM]
+\t[--ignore-tag=... ...]
 \torgfile ...
 $0 --version
 EOF
