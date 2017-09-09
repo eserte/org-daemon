@@ -521,7 +521,7 @@ sub check_for_updates {
 	}
 	delete $open_warning{$org_file};
 	if (!$org_data->{modified} || $org_data->{modified} < $modtime) {
-	    my @new_org_data_dates = find_dates_in_org_file($org_file, include_timeless => $include_timeless, time_fallback => $time_fallback, ignore_tags => \@ignore_tags);
+	    my @new_org_data_dates = find_relevant_dates_in_org_file($org_file, include_timeless => $include_timeless, time_fallback => $time_fallback, ignore_tags => \@ignore_tags);
 	    my %old_org_data_dates; # id -> date
 	    if ($org_data->{dates}) {
 		for my $date (@{ $org_data->{dates} }) {
@@ -545,6 +545,19 @@ sub check_for_updates {
 	}
     }
     $changes;
+}
+
+# Filter the output of find_dates_in_org_file: due dates which
+# are currently not display (no %window_for_date entry) are
+# removed from the result
+sub find_relevant_dates_in_org_file {
+    my(@args) = @_;
+    grep {
+	(
+	 $_->state ne 'due' ||
+	 ($window_for_date{$_->id} && Tk::Exists($window_for_date{$_->id}))
+	)
+    } find_dates_in_org_file(@args);
 }
 
 sub find_dates_in_org_file {
@@ -703,11 +716,7 @@ sub find_dates_in_org_file {
 
 		my $date = Emacs::Org::Daemon::Date->new(%date_params);
 		my $date_state = $date->state;
-		if (
-		    ($date_state eq 'due' && $window_for_date{$date->id} && Tk::Exists($window_for_date{$date->id}))
-		    ||
-		    $date_state =~ m{^(wait|early)}
-		   ) {
+		if ($date_state =~ m{^(wait|early|due)}) {
 		    push @dates, $date;
 		}
 	    }

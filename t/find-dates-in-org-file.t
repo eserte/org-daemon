@@ -61,11 +61,30 @@ EOF
 * TODO normal date :tag: <2015-12-31 Fr 23:59>
 EOF
     my $date_id = '* TODO normal date :tag: <2015-12-31 Fr 23:59>|2015-12-31 Fr'; # strange id formatting...
+
+    # First: simulate usage outside of org-daemon ---
+    # in this case all due dates are returned.
+    # Here find_dates_in_org_file should be used.
+    {
+	my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
+	is scalar(@dates), 1;
+    }
+
     no warnings 'redefine', 'once';
+
+    # Second: simulate running Tk and date is not displayed
+    {
+	local $App::orgdaemon::window_for_date{$date_id};
+	local *Tk::Exists = sub { $_[0] eq 'fake window id' };
+	my @dates = App::orgdaemon::find_relevant_dates_in_org_file($tmp->filename);
+	is scalar(@dates), 0;
+    }
+
+    # Third: simulate running Tk and date is currently displayed
     local $App::orgdaemon::window_for_date{$date_id} = 'fake window id';
     local *Tk::Exists = sub { $_[0] eq 'fake window id' };
 
-    my @dates = App::orgdaemon::find_dates_in_org_file($tmp->filename);
+    my @dates = App::orgdaemon::find_relevant_dates_in_org_file($tmp->filename);
     is scalar(@dates), 1;
     is $dates[0]->id, $date_id;
     is $dates[0]->state, 'due', 'date in past, but current display in a window faked...';
