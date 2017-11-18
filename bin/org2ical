@@ -27,7 +27,6 @@ use File::Basename 'basename', 'dirname';
 use POSIX          'strftime', 'ceil';
 use File::Copy     'cp';
 use File::Temp     ();
-use Time::Local    'timelocal';
 
 require "org-daemon"; # for App::orgdaemon::find_dates_in_org_file
 

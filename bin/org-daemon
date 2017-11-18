@@ -22,9 +22,21 @@ our $VERSION = '1.06';
 
 use Getopt::Long;
 use List::Util qw(max);
-use Time::Local qw(timelocal);
 use Tk qw(tkinit Ev MainLoop);
 use Tk::PNG;
+
+BEGIN {
+    if ($] < 5.010) {
+	require Time::y2038;
+	*timelocal = sub (@) {
+	    $_[5] -= 1900;
+	    Time::y2038::timelocal(@_);
+	};
+    } else {
+	require Time::Local;
+	Time::Local->import('timelocal');
+    }
+}
 
 {
     package # hide from PAUSE indexer
