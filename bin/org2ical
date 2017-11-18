@@ -289,14 +289,14 @@ sub copy_stat {
 # REPO NAME is_in_path /home/eserte/src/srezic-repository 
 # REPO MD5 4be1e368fea0fa9af4e89256a9878820
 
-=head2 is_in_path($prog)
-
-=for category File
-
-Return the pathname of $prog, if the program is in the PATH, or undef
-otherwise.
-
-=cut
+#=head2 is_in_path($prog)
+#
+#=for category File
+#
+#Return the pathname of $prog, if the program is in the PATH, or undef
+#otherwise.
+#
+#=cut
 
 sub is_in_path {
     my($prog) = @_;
@@ -368,3 +368,65 @@ App::org2ical::org2ical(
 );
 
 __END__
+
+=head1 NAME
+
+org2ical - convert appointments in org-mode files to .ics files
+
+=head1 SYNOPSIS
+
+    org2ical [--debug] [--domain-id=example.org] --todo-file /path/to/file.org [--todo-file ...] --ics-file /path/to/outfile.ics
+
+=head1 DESCRIPTION
+
+Convert appointments (events; active timestamps) found in one ro more
+org-mode files into an ical file.
+
+The generated file may be served with a web server. Probably some kind
+of security (authentication, SSL) should be configured in such setup.
+
+=head2 OPTIONS
+
+=over
+
+=item C<--todo-file I<path>>
+
+The path to an org-mode file. Mandatory. May be specified multiple times.
+
+=item C<--ics-file I<path>>
+
+The path for the output ical (.ics) file. Mandatory.
+
+=item C<--domain-id I<value>>
+
+Specify the domain part of generated uids. If not given, then use the
+fqdn or short hostname.
+
+=item C<--debug>
+
+Enable debugging, e.g. output of a L<diff(1)> if there were changes to
+the generated .ics file.
+
+=back
+
+=head1 EXAMPLE
+
+A sample crontab entry:
+
+    0 * * * * org2ical --domain-id=example.org --todo-file $HOME/TODO.org --ics-file $HOME/public_html/secure/TODO.ics
+
+=head1 TODO & LIMITATIONS
+
+ * it's possible to ignore appointments by tags; this tag list should be configurable
+
+ * the handling of description/summar/comment is not yet defined
+
+=head1 AUTHOR
+
+Slaven Rezic
+
+=head1 SEE ALSO
+
+L<org-daemon>.
+
+=cut
