@@ -224,10 +224,17 @@ sub update_lb {
 	}
     } else {
 	my $now = time;
-	my @l1 = localtime $now;
-	my $today_end = timelocal 59,59,23,@l1[3..5];
-	my @l2 = localtime $now+86400; # XXX which is not correct during DST switches, but well
-	my $tomorrow_end = timelocal 59,59,23,@l2[3..5];
+	my($today_begin, $today_end);
+	{
+	    my @l1 = localtime $now;
+	    $today_begin = timelocal 0,0,0,@l1[3..5];
+	    $today_end = timelocal 59,59,23,@l1[3..5];
+	}
+	my $tomorrow_end;
+	{
+	    my @l2 = localtime $now+86400; # XXX which is not correct during DST switches, but well
+	    $tomorrow_end = timelocal 59,59,23,@l2[3..5];
+	}
 
 	# XXX find a solution with less parsing here (i.e. $date
 	# should have more information available)
@@ -272,12 +279,17 @@ sub update_lb {
 	    my $this_day = $date->date_of_date;
 	    if (!defined $last_day || $this_day ne $last_day) {
 		my $today_or_tomorrow;
-		if      ($date->{epoch} <= $today_end) {
+		if      ($date->{epoch} <  $today_begin) {
+		    $today_or_tomorrow = ' (yesterday)';
+		} elsif ($date->{epoch} <= $today_end) {
 		    $today_or_tomorrow = ' (today)';
 		} elsif ($date->{epoch} <= $tomorrow_end) {
 		    $today_or_tomorrow = ' (tomorrow)';
 		} else {
-		    $today_or_tomorrow = '';
+		    my @l = localtime $date->{epoch};
+		    my $day_begin = timelocal 0,0,0,@l[3..5];
+		    my $days = int(($day_begin - $today_begin) / 86400); # XXX probably inaccurate through DST switches
+		    $today_or_tomorrow = " (in $days days)"; # always plural at this point
 		}
 		my $text = '  ' . $this_day . $today_or_tomorrow;
 		if ($overview_widget eq 'listbox') {
