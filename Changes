@@ -1,5 +1,8 @@
 Revision history for org-daemon.
 
+1.08	2017-11-18
+	- fix MANIFEST
+
 1.07	2017-11-18
 	- include org2ical script (experimental, but usable)
 	- use Time::y2038 with older perls
