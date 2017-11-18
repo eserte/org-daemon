@@ -18,8 +18,7 @@ package # hide from PAUSE indexer
 use strict;
 use warnings;
 use FindBin;
-use lib $FindBin::RealBin;
-use lib "/home/e/eserte/src/CPAN/App-orgdaemon/bin", "/mnt/cvrsnica/home/e/eserte/src/CPAN/App-orgdaemon/bin", "$ENV{HOME}/src/CPAN/App-orgdaemon/bin"; # XXX remove once script was moved
+use lib $FindBin::RealBin; # for org-daemon
 
 use Digest::MD5    'md5_base64';
 use Encode         'encode_utf8', 'decode_utf8';

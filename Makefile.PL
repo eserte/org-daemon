@@ -21,7 +21,7 @@ WriteMakefile(
 	'Tk'	   => 0,
 	'IPC::Run' => 0, # but may also work without
     },
-    EXE_FILES         => ['bin/org-daemon'],
+    EXE_FILES         => ['bin/org-daemon', 'bin/org2ical'],
     LICENSE	      => 'perl',
     ($] >= 5.005 ?
       (ABSTRACT	      => 'watch for appointments in org-mode files',
