@@ -1,5 +1,9 @@
 Revision history for org-daemon.
 
+1.06	2017-11-18
+	- no hanging process with --use-anyevent
+	- show relative days in overview window
+
 1.05	2017-09-09
 	- new option: --ignore-tag
 	- new experimental option: --use-anyevent
