@@ -90,7 +90,7 @@ sub org2ical {
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
-PRODID:-//Slaven Rezic//NONSGML rezic.de org2ical 0.03//EN
+PRODID:-//Slaven Rezic//NONSGML rezic.de org2ical $VERSION//EN
 EOF
 
     my $hostname = defined $domain_id ? $domain_id : _hostname();
