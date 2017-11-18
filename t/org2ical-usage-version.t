@@ -8,19 +8,14 @@
 use strict;
 use warnings;
 use FindBin;
+use lib $FindBin::RealBin;
+
 use IPC::Run 'run';
 use Test::More 'no_plan';
 
-my $use_blib = 1;
-my $org2ical = "$FindBin::RealBin/../blib/script/org2ical";
-unless (-f $org2ical) {
-    # blib version not available, use ../bin source version
-    $org2ical = "$FindBin::RealBin/../bin/org2ical";
-    $use_blib = 0;
-}
+use TestUtil;
 
-# Special handling for systems without shebang handling
-my @full_script = $^O eq 'MSWin32' || !$use_blib ? ($^X, $org2ical) : ($org2ical);
+my @full_script = get_full_script('org2ical');
 
 {
     my $res = run [@full_script, '--help'], '2>', \my $stderr;
