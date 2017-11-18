@@ -201,8 +201,12 @@ EOF
 	    warn ".ics file $out_ics did not change\n" if $debug;
 	    return;
 	} else {
-	    if ($debug && $^O ne 'MSWin32' && is_in_path('diff')) {
-		system 'diff', '-u', $out_ics, $ofh->filename;
+	    if ($debug) {
+		if ($^O ne 'MSWin32' && is_in_path('diff')) {
+		    system 'diff', '-u', $out_ics, $ofh->filename;
+		} else {
+		    warn ".ics file, but no diff available\n";
+		}
 	    }
 	}
 	cp $out_ics, "$out_ics~";
