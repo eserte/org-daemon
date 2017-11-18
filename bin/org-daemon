@@ -18,7 +18,7 @@ package # hide from PAUSE indexer
 use strict;
 use 5.008; # scalar open
 
-our $VERSION = '1.05';
+our $VERSION = '1.06';
 
 use Getopt::Long;
 use List::Util qw(max);
@@ -931,6 +931,10 @@ $mw->protocol('WM_DELETE_WINDOW', sub {
 			      -default => 'No',
 			     ) =~ /no/i);
 		  $mw->destroy;
+		  if ($AnyEvent::Impl::Tk::mw) {
+		      $AnyEvent::Impl::Tk::mw->destroy;
+		      # otherwise process would still run & hang
+		  }
 	      });
 
 # emacsclient does not start if a directory is missing,
