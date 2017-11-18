@@ -1003,8 +1003,12 @@ org-daemon - watch for appointments in org-mode files
 =head1 DESCRIPTION
 
 B<org-daemon> is a Perl/Tk program which watches one or more emacs
-org-mode files for appointments, that is, entries in the form of C<<
-<YYYY-MM-DD AAA HH:MM> >> and fires alarms.
+org-mode files for
+L<appointments|http://orgmode.org/manual/Timestamps.html>, that is,
+entries in the form of C<< <YYYY-MM-DD AAA HH:MM> >> and fires alarms
+in the form of non-modal dialogs. "Passive" timestamps (enclosed in
+square brackets) are ignored. Diary-style sexp entries are not
+implemented (see L</TODO>).
 
 =head1 OPTIONS
 
@@ -1012,9 +1016,10 @@ org-mode files for appointments, that is, entries in the form of C<<
 
 =item --early-warning=I<seconds>
 
-There's an warning before the real alarm 30 minutes (1800 seconds)
-before. This option can be used to change this period. Use 0 to turn
-early warnings off completely.
+There's an warning (a non-modal dialog with orange background) before
+the real alarm, by default 30 minutes (1800 seconds) before. This
+option can be used to change this default. Use 0 to turn early
+warnings off completely.
 
 =item --recheck-interval=I<seconds>
 
@@ -1036,8 +1041,8 @@ is used, then a referenced org entry is not opened automatically.
 =item --emacsclient-cmd=I<cmdline ... %l %f ...>
 
 Provide an alternative commandline for emacsclient calls. The
-placeholder strings C<%l> and C<%f> are replaced by line and file.
-Example:
+placeholder strings C<%l> and C<%f> are replaced by line and file of
+the current appointment. Example:
 
     org-daemon --emacsclient-cmd="ssh otheruser@otherhost emacsclient +%l '%f'" ...
 
@@ -1064,8 +1069,8 @@ C<--recheck-interval> is still applied for periodic checks.
 
 =over
 
-=item * Watch all given files periodically every minute (or the
-interval as given with the C<--recheck-interval> switch).
+=item * Watch all given org-mode files periodically every minute (or
+the interval as given with the C<--recheck-interval> switch).
 
 =item * Iconified list of next appointments, with entries in different
 colors (red for appointments in near future, over orange and yellow to
@@ -1073,14 +1078,15 @@ green for appointments in far future)
 
 =item * By double-clicking on an entry in the appointment list, or
 clicking on the Edit button in the alarm window, the corresponding
-entry will be shown in emacs itself (needs B<emacsclient> and emacs
+entry will be shown in emacs itself (needs L<emacsclient(1)> and emacs
 has to be put into C<server-start> mode)
 
 =item * Show an early warning 30 minutes before (or the period
 specified with C<--early-warning>. Individual early warnings may be
-specified with the following extended org syntax: C<< <YYYY-MM-DD AAA
-HH:MM -CountUnit> >>, where Unit may be one of s (seconds), min
-(minutes), h (hours), w (weeks), m (months), and y (years). Example:
+specified with the following non-standard extended org-mode syntax:
+C<< <YYYY-MM-DD AAA HH:MM -CountUnit> >>, where Unit may be one of s
+(seconds), min (minutes), h (hours), w (weeks), m (months), and y
+(years). Example:
 
      <2009-12-25 Fr 12:00 -10min>
 
@@ -1088,27 +1094,19 @@ HH:MM -CountUnit> >>, where Unit may be one of s (seconds), min
 
 =head1 TODO
 
- * it would be nice if it was possible to specify individual pre-alarm
-   times in org-mode and use them in org-daemon
-
  * what about locations attached to lon/lat, and automatic routing and
    automatic pre-alarm calculation?
 
- * it may happen that the update check happens just in the moment when
-   emacs is about to save the file, leaving a half-written file. this
-   may be workarounded by reading the file contents twice and compare
-   if the contents are the same
-
  * more gui elements:
    * close button for alarm toplevel
-   * reload button for data list window
    * iconify button for data list window
    * add another file into watcher list
    * remove a file from the watcher list
    * show the current watcher list
    * maybe some debugging helpers (time of the update, parsed contents...)
 
- * do things asynchronously (like reading files etc.)?
+ * support "Diary-style sexp entries", i.e. timestamps in the form
+     <%%(diary-float t 4 2)>
 
 =head1 PREREQUISITES
 
