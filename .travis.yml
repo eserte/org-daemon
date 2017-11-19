@@ -12,7 +12,7 @@ matrix:
     - perl: "5.18"
       env: USE_SYSTEM_PERL=1
       sudo: true
-    - perl: "5.22"
+    - perl: "5.26"
       env: WITH_TIME_FAKE=1
     - perl: "5.8"
       env: WITH_TIME_FAKE=1
