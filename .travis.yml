@@ -33,6 +33,10 @@ before_install:
 install:
   - if [ "$USE_SYSTEM_PERL" = "" ]; then cpanm --quiet --installdeps --notest .; fi
 
+after_script:
+  - make distcheck
+  - HARNESS_OPTIONS=j4:c make disttest
+
 branches:
   except:
     - /appveyor/
