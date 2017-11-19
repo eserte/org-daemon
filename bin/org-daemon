@@ -107,7 +107,7 @@ BEGIN {
     }
     sub start_is_timeless {
 	my $self = shift;
-	!length $self->{time};
+	!defined $self->{time} || !length $self->{time};
     }
     sub end_is_timeless {
 	my $self = shift;
@@ -733,7 +733,7 @@ sub find_dates_in_org_file {
 		    $early_warning_secs = _get_head_warning_secs($early_warning);
 		}
 		if (!defined $early_warning_secs) {
-		    $early_warning_secs = !length $time ? $default_timeless_early_warning : $default_early_warning;
+		    $early_warning_secs = !defined $time || !length $time ? $default_timeless_early_warning : $default_early_warning;
 		}
 		if ($early_warning_secs > 0) {
 		    $date_params{early_warning_epoch} = $epoch - $early_warning_secs;
