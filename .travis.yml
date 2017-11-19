@@ -22,7 +22,9 @@ matrix:
     - perl: "5.16"
     - perl: "5.14"
     - perl: "5.12"
+      env: WITH_TIME_FAKE=1
     - perl: "5.10"
+      env: WITH_TIME_FAKE=1
 
 before_install:
   - if [ "$USE_SYSTEM_PERL" = 1 ]; then perlbrew off; sudo apt-get install -qq perl-tk libipc-run-perl; fi
