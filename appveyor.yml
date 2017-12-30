@@ -3,18 +3,25 @@ branches:
     - /travis/
 skip_tags: true
 
-cache:
-  - C:\strawberry
+#cache:
+#  - C:\strawberry
+
+environment:
+  matrix:
+    - perl: activeperl
+      make: dmake
+    - perl: strawberryperl
+      make: gmake
 
 install:
-  - if not exist "C:\strawberry" cinst --allow-empty-checksums strawberryperl
-  - set PATH=C:\strawberry\perl\bin;C:\strawberry\perl\site\bin;C:\strawberry\c\bin;%PATH%
+  - if %perl%==strawberryperl ( if not exist "C:\strawberry" cinst strawberryperl )
+  - if %perl%==strawberryperl   set PATH=C:\strawberry\perl\bin;C:\strawberry\perl\site\bin;C:\strawberry\c\bin;%PATH%
   - cd C:\projects\%APPVEYOR_PROJECT_NAME%
 # Try to install Tk with PPM first, as it's much faster
   - ppm install Tk
-  - cpanm --installdeps .
-  - cpanm --notest Time::Fake
+  - if %perl%==activeperl       ppm install IPC-Run Time-Fake dmake
+  - if %perl%==strawberryperl ( cpanm --installdeps . && cpanm --notest Time::Fake )
 
 build_script:
   - perl Makefile.PL
-  - gmake test
+  - '%make% test'
