@@ -1,8 +1,13 @@
 language: perl
-dist: trusty
 sudo: false
 matrix:
   include:
+    ## The system perls
+    # Actually the perl here does not matter
+    - perl: "5.26"
+      env: USE_SYSTEM_PERL=1
+      dist: xenial
+      sudo: true
     # Actually the perl here does not matter
     - perl: "5.14"
       env: USE_SYSTEM_PERL=1
@@ -12,19 +17,27 @@ matrix:
     - perl: "5.18"
       env: USE_SYSTEM_PERL=1
       sudo: true
-    - perl: "5.26"
+
+    ## The perlbrew perls
+    - perl: "5.30"
       env: WITH_TIME_FAKE=1
+      dist: xenial
+    - perl: "5.28"
+      env: WITH_TIME_FAKE=1
+      dist: xenial
     - perl: "5.8"
       env: WITH_TIME_FAKE=1
+      dist: trusty
     - perl: "5.20"
-    - perl: "5.18"
-      env: WITH_TIME_FAKE=1
+      dist: trusty
     - perl: "5.16"
-    - perl: "5.14"
+      dist: trusty
     - perl: "5.12"
       env: WITH_TIME_FAKE=1
+      dist: trusty
     - perl: "5.10"
       env: WITH_TIME_FAKE=1
+      dist: trusty
 
 before_install:
   - if [ "$USE_SYSTEM_PERL" = 1 ]; then perlbrew off; sudo apt-get install -qq perl-tk libipc-run-perl; fi
