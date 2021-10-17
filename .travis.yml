@@ -1,55 +1,46 @@
 language: perl
-sudo: false
+arch:
+ - arm64
 matrix:
-  include:
-    ## The system perls
-    # Actually the perl here does not matter
-    - perl: "5.26"
-      env: USE_SYSTEM_PERL=1
-      dist: xenial
-      sudo: true
-    # Actually the perl here does not matter
-    - perl: "5.14"
-      env: USE_SYSTEM_PERL=1
-      dist: precise
-      sudo: true
-    # Actually the perl here does not matter
-    - perl: "5.18"
-      env: USE_SYSTEM_PERL=1
-      sudo: true
+ include:
+  ## The system perls
+  - dist: xenial
+    language: minimal
+    env: USE_SYSTEM_PERL=1
+  - dist: bionic
+    language: minimal
+    env: USE_SYSTEM_PERL=1
+  - dist: focal
+    language: minimal
+    env: USE_SYSTEM_PERL=1
 
-    ## The perlbrew perls
-    - perl: "5.30"
-      env: WITH_TIME_FAKE=1
-      dist: xenial
-    - perl: "5.28"
-      env: WITH_TIME_FAKE=1
-      dist: xenial
-    - perl: "5.8"
-      env: WITH_TIME_FAKE=1
-      dist: trusty
-    - perl: "5.20"
-      dist: trusty
-    - perl: "5.16"
-      dist: trusty
-    - perl: "5.12"
-      env: WITH_TIME_FAKE=1
-      dist: trusty
-    - perl: "5.10"
-      env: WITH_TIME_FAKE=1
-      dist: trusty
+  ## The perlbrew perls
+  - dist: xenial
+    perl: 5.24
+    env: WITH_TIME_FAKE=1
+  - dist: bionic
+    perl: 5.26
+  - dist: focal
+    perl: 5.32
+    env: WITH_TIME_FAKE=1
 
 before_install:
-  - if [ "$USE_SYSTEM_PERL" = 1 ]; then perlbrew off; sudo apt-get install -qq perl-tk libipc-run-perl; fi
-  - if [ "$WITH_TIME_FAKE" = 1 ]; then cpanm --quiet --notest Time::Fake; fi
+ - if [ "$USE_SYSTEM_PERL" = 1 ]; then sudo apt-get install -qq perl-tk libipc-run-perl; fi
+ - if [ "$WITH_TIME_FAKE" = 1 ]; then cpanm --quiet --notest Time::Fake; fi
 
 install:
-  - if [ "$USE_SYSTEM_PERL" = "" ]; then cpanm --quiet --installdeps --notest .; fi
+ - if [ "$USE_SYSTEM_PERL" = "" ]; then cpanm --quiet --installdeps --notest .; fi
+
+script:
+ - perl Makefile.PL && HARNESS_OPTIONS=j4:c HARNESS_TIMER=1 make test
 
 after_script:
-  - make distcheck
-  - HARNESS_OPTIONS=j4:c make disttest
+ - make distcheck
+ - HARNESS_OPTIONS=j4:c make disttest
 
 branches:
-  except:
-    - /appveyor/
+ except:
+  - /appveyor/
+  - /github-actions/
+  - /gitlab/
+  - /doozer/
