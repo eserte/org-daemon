@@ -277,7 +277,7 @@ sub _get_old_or_new {
 sub geo_to_url {
     my($lat,$lon,$zoom,$link_title) = @_;
     $zoom = 15 if !defined $zoom;
-    my $url = sprintf "https://www.openstreetmap.org/#map=%s/%s/%s", $zoom, $lat, $lon;
+    my $url = sprintf "https://www.openstreetmap.org/?mlat=%s&mlon=%s#map=%s/%s/%s", $lat, $lon, $zoom, $lat, $lon;
     if (defined $link_title) {
 	"$url ($link_title)";
     } else {

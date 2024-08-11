@@ -160,9 +160,9 @@ EOF
     {
 	# geo:...
 	for my $def (
-	    ['[[geo:52.51451,13.35011?z=19]]', 'https://www.openstreetmap.org/#map=19/52.51451/13.35011'],
-	    ["[[geo:52.51451,13.35011?z=19][Siegess\xe4ule Berlin]]", "https://www.openstreetmap.org/#map=19/52.51451/13.35011 (Siegess\xc3\xa4ule Berlin)"],
-	    ['[[geo:-22.9680,-43.1748]]',      'https://www.openstreetmap.org/#map=15/-22.9680/-43.1748'], # negative lat/lon + missing zoom
+	    ['[[geo:52.51451,13.35011?z=19]]', 'https://www.openstreetmap.org/?mlat=52.51451&mlon=13.35011#map=19/52.51451/13.35011'],
+	    ["[[geo:52.51451,13.35011?z=19][Siegess\xe4ule Berlin]]", "https://www.openstreetmap.org/?mlat=52.51451&mlon=13.35011#map=19/52.51451/13.35011 (Siegess\xc3\xa4ule Berlin)"],
+	    ['[[geo:-22.9680,-43.1748]]',      'https://www.openstreetmap.org/?mlat=-22.9680&mlon=-43.1748#map=15/-22.9680/-43.1748'], # negative lat/lon + missing zoom
 	) {
 	    my($geo_osm_link, $osm_url) = @$def;
 
