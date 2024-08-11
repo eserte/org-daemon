@@ -163,6 +163,9 @@ EOF
 		    }
 		}
 		if ($comment) {
+		    # handle geo: URIs
+		    $comment =~ s{\[\[geo:([-+]?\d+(?:\.\d+)?),([-+]?\d+(?:\.\d+)?)(?:\?z=(\d+(?:\.\d+)?))?\]\]}{geo_to_url($1,$2,$3)}eg;
+
 		    $comment =~ s{^\s+}{}gm;
 		    $comment =~ s{\n}{\\n}g;
 		    $comment =~ s{([,;])}{\\$1}g;
@@ -269,6 +272,12 @@ sub _get_old_or_new {
     } else {
 	$new_vcal;
     }
+}
+
+sub geo_to_url {
+    my($lat,$lon,$zoom) = @_;
+    $zoom = 15 if !defined $zoom;
+    sprintf "https://www.openstreetmap.org/#map=%s/%s/%s", $zoom, $lat, $lon;
 }
 
 # REPO BEGIN
