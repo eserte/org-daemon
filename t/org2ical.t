@@ -75,6 +75,7 @@ DTSTAMP:19700101T000000Z
 LAST-MODIFIED:19700101T000000Z
 SUMMARY:normal date
 TRANSP:OPAQUE
+DESCRIPTION:Initial details.\\n
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Reminder
@@ -106,7 +107,7 @@ EOF
 	my $success = run [@full_script, '--domain-id=example.org', "--todo-file=$dir/test.org", "--ics-file=$dir/test.ics"];
 	ok $success, 'run on existing .ics file, with changes';
 	my $ics_contents = slurp "$dir/test.ics";
-	is $original_ics_contents, $ics_contents, 'no changes in ics file (only details changed)';
+	like $ics_contents, qr{Changes details}, 'details changed in ics file';
     }
 
     {

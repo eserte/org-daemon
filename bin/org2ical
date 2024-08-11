@@ -147,7 +147,7 @@ EOF
 		# (scheduled date, former state changes, properties...). It feels somewhat
 		# hacky, see XXXs below.
 		my $comment;
-		if ($todo_date->{seek} && open my $forward_fh, $todo_file) {
+		if (defined $todo_date->{seek} && open my $forward_fh, $todo_file) {
 		    seek $forward_fh, $todo_date->{seek}, SEEK_SET or die "seek failed: $!";
 		    scalar <$forward_fh>; # overread title line; already in the summary of the vevent
 		    while(defined(my $line = decode_utf8(scalar <$forward_fh>))) { # XXX should not assume utf-8 as org file encoding
