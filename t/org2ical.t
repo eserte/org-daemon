@@ -160,16 +160,17 @@ EOF
     {
 	# geo:...
 	for my $def (
-	    ['geo:52.51451,13.35011?z=19', 'https://www.openstreetmap.org/#map=19/52.51451/13.35011'],
-	    ['geo:-22.9680,-43.1748',      'https://www.openstreetmap.org/#map=15/-22.9680/-43.1748'], # negative lat/lon + missing zoom
+	    ['[[geo:52.51451,13.35011?z=19]]', 'https://www.openstreetmap.org/#map=19/52.51451/13.35011'],
+	    ["[[geo:52.51451,13.35011?z=19][Siegess\xe4ule Berlin]]", "https://www.openstreetmap.org/#map=19/52.51451/13.35011 (Siegess\xc3\xa4ule Berlin)"],
+	    ['[[geo:-22.9680,-43.1748]]',      'https://www.openstreetmap.org/#map=15/-22.9680/-43.1748'], # negative lat/lon + missing zoom
 	) {
-	    my($geo_url, $osm_url) = @$def;
+	    my($geo_osm_link, $osm_url) = @$def;
 
 	    {
 		open my $ofh, '>:encoding(utf-8)', "$dir/test.org" or die $!;
 		print $ofh <<EOF;
 * TODO date with geo location <9999-01-01 Fr 00:00>
-  Location: [[$geo_url]]
+  Location: $geo_osm_link
 EOF
 		close $ofh or die $!;
 	    }
