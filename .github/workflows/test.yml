@@ -33,7 +33,7 @@ jobs:
 
     - name: "perl dependency installation (ubuntu)"
       run: |
-        sudo apt-get install -q --no-install-recommends -y cpanminus
+        sudo apt-get install -q --no-install-recommends -y cpanminus libx11-dev libfreetype6-dev libxft-dev libpng-dev libz-dev libjpeg-dev
         cpanm --sudo --quiet --installdeps --notest . || (cat ~/.cpanm/work/*/build.log; false)
       if: "startsWith(matrix.os, 'ubuntu-')"
     - name: "perl dependency installation (windows)"
