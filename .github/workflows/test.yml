@@ -34,7 +34,7 @@ jobs:
     - name: "perl dependency installation (ubuntu)"
       run: |
         sudo apt-get install -q --no-install-recommends -y cpanminus
-        cpanm --sudo --quiet --installdeps --notest .
+        cpanm --sudo --quiet --installdeps --notest . || (cat ~/.cpanm/work/*/build.log; false)
       if: "startsWith(matrix.os, 'ubuntu-')"
     - name: "perl dependency installation (windows)"
       run: |
