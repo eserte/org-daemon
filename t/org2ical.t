@@ -59,14 +59,14 @@ EOF
 
     {
 	# normalize stuff (e.g. prog version)
-	$ics_contents =~ s{^(PRODID.*org2ical )[\d.]+(.*)}{$1."0.00".$2}e;
+	$ics_contents =~ s{^(PRODID.*org2ical )[\d.]+(.*)}{$1."0.00".$2}egm;
 	$ics_contents =~ s{^(CREATED|DTSTAMP|LAST-MODIFIED):\d{8}T\d{6}Z$}{$1.":19700101T000000Z"}egm;
 
 	is_deeply [split /\n/, $ics_contents], [split /\n/, <<EOF], 'expected ics contents after initial creation';
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
-PRODID:-//Slaven Rezic//NONSGML rezic.de org2ical 0.06//EN
+PRODID:-//Slaven Rezic//NONSGML rezic.de org2ical 0.00//EN
 BEGIN:VEVENT
 UID:Blcatps/EWPbXGJBkLi7Iw\@example.org
 DTSTART:99990101T000000
