@@ -19,8 +19,7 @@ jobs:
        include:
          - os: 'ubuntu-20.04'
          - os: 'ubuntu-22.04'
-         ## XXX problems with Tk installation
-         #- os: 'ubuntu-24.04'
+         - os: 'ubuntu-24.04'
          ## XXX Installing the dependency fails here, needs to be researched
          #- os: 'windows-latest'
     steps:
@@ -34,8 +33,8 @@ jobs:
 
     - name: "perl dependency installation (ubuntu)"
       run: |
-        sudo apt-get install -q --no-install-recommends -y cpanminus
-        cpanm --sudo --quiet --installdeps --notest .
+        sudo apt-get install -q --no-install-recommends -y cpanminus libx11-dev libfreetype6-dev libxft-dev libpng-dev libz-dev libjpeg-dev
+        cpanm --sudo --quiet --installdeps --notest . || (cat ~/.cpanm/work/*/build.log; false)
       if: "startsWith(matrix.os, 'ubuntu-')"
     - name: "perl dependency installation (windows)"
       run: |
