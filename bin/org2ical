@@ -4,7 +4,7 @@
 #
 # Author: Slaven Rezic
 #
-# Copyright (C) 2017,2018,2024,2025 Slaven Rezic. All rights reserved.
+# Copyright (C) 2017,2018,2024,2025,2026 Slaven Rezic. All rights reserved.
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -29,11 +29,12 @@ use File::Temp     ();
 
 require "org-daemon"; # for App::orgdaemon::find_dates_in_org_file
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 sub org2ical {
     my(%opts) = @_;
     my $out_ics    =    delete $opts{out_ics};
+    my $do_out_ics_backup = delete $opts{do_out_ics_backup};
     my @todo_files = @{ delete $opts{todo_files} };
     my @include_tags = @{ delete $opts{include_tags} || [] };
     my @exclude_tags = @{ delete $opts{exclude_tags} || [] };
@@ -233,7 +234,8 @@ EOF
 		}
 	    }
 	}
-	cp $out_ics, "$out_ics~";
+	cp $out_ics, "$out_ics~"
+	    if $do_out_ics_backup;
     }
 
     rename $ofh->filename, $out_ics
@@ -378,9 +380,11 @@ sub usage (;$) {
 
 my @include_tags;
 my @exclude_tags;
+my $do_out_ics_backup = 1;
 Getopt::Long::GetOptions(
     'todo-file=s@'       => \my @todo_files,
     "ics-file|out-ics=s" => \my $out_ics,
+    "out-ics-backup!"    => \$do_out_ics_backup,
     'include-tags=s',    => sub { push @include_tags, split /,/, $_[1] },
     'exclude-tags=s',    => sub { push @exclude_tags, split /,/, $_[1] },
     "debug!"             => \my $debug,
@@ -402,6 +406,7 @@ if (!@todo_files) {
 
 App::org2ical::org2ical(
     out_ics    => $out_ics,
+    do_out_ics_backup => $do_out_ics_backup,
     todo_files => \@todo_files,
     include_tags => \@include_tags,
     exclude_tags => \@exclude_tags,
@@ -417,7 +422,7 @@ org2ical - convert appointments in org-mode files to .ics files
 
 =head1 SYNOPSIS
 
-    org2ical [--debug] [--domain-id=example.org] --todo-file /path/to/file.org [--todo-file ...] [--include-tags tag,tag,...] [--exclude-tags tag,tag,...] --ics-file /path/to/outfile.ics
+    org2ical [--debug] [--domain-id=example.org] --todo-file /path/to/file.org [--todo-file ...] [--include-tags tag,tag,...] [--exclude-tags tag,tag,...] --ics-file /path/to/outfile.ics [--no-out-ics-backup]
 
 =head1 DESCRIPTION
 
@@ -438,6 +443,12 @@ The path to an org-mode file. Mandatory. May be specified multiple times.
 =item C<--ics-file I<path>>
 
 The path for the output ical (.ics) file. Mandatory.
+
+=item C<--no-out-ics-backup>
+
+By default, if the output .ics file existed and there was a change,
+then a backup is created (emacs-like, same filename with C<~> suffix).
+If this option is specified then no backup is done.
 
 =item C<--include-tags I<tag,tag,...>>
 
