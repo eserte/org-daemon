@@ -71,6 +71,8 @@ jobs:
             deps: "Time::Fake"
           - perlimage: 5.40.0-slim-bookworm
           - perlimage: 5.42.0-slim-bookworm
+          # XXX switch to trixie once Tk compiles on it!
+          - perlimage: 5.44.0-slim-bookworm
     steps:
     - name: apt hacks
       run: |
