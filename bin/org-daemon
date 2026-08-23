@@ -155,6 +155,11 @@ sub normal_repeater {
     $lb->repeat($recheck_interval*1000, sub { tk_do_one_iteration() });
 }
 
+sub alarm_repeater {
+    my $alarm_interval = $recheck_interval < 60 ? $recheck_interval : 60;
+    $lb->repeat($alarm_interval*1000, sub { tk_do_alarm_iteration() });
+}
+
 sub show_date_by_index_in_emacs {
     my($index) = @_;
     my $date = $lb_contents[$index];
@@ -210,14 +215,18 @@ sub show_date_in_emacs {
     }
 }
 
+sub tk_do_alarm_iteration {
+    check_for_alarms();
+
+    colorize_entries();
+}
+
 sub tk_do_one_iteration {
     if (check_for_updates()) {
 	update_lb();
     }
 
-    check_for_alarms();
-
-    colorize_entries();
+    tk_do_alarm_iteration();
 }
 
 sub update_lb {
@@ -1041,20 +1050,23 @@ $lb->Button(-padx => 0, -pady => 0, -borderwidth => 1,
 $mw->bind('<Control-p>' => sub { start_ptksh() });
 
 tk_do_one_iteration();
-if ($recheck_interval == 60) {
-    # synchronize with full minute, only implemented for recheck_interval=60
+normal_repeater();
+
+my $alarm_interval = $recheck_interval < 60 ? $recheck_interval : 60;
+if ($alarm_interval == 60) {
+    # synchronize with full minute
     my(@l) = localtime;
-    my $first_delay = $recheck_interval - $l[0];
+    my $first_delay = 60 - $l[0];
     if ($first_delay) {
 	$lb->after($first_delay*1000, sub {
-		       tk_do_one_iteration();
-		       normal_repeater();
+		       tk_do_alarm_iteration();
+		       alarm_repeater();
 		   });
     } else {
-	normal_repeater();
+	alarm_repeater();
     }
 } else {
-    normal_repeater();
+    alarm_repeater();
 }
 
 $mw->protocol('WM_DELETE_WINDOW', sub {
